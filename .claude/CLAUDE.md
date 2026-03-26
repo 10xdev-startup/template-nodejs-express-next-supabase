@@ -62,9 +62,19 @@ npm run lint      # ESLint
 - Commits, PRs e comentarios em **portugues** (ver skills `/commit` e `/pr`)
 - Codigo-fonte em **ingles** (variaveis, funcoes, tipos)
 
+## Autenticacao
+
+- **Provider**: Supabase Auth (Google OAuth)
+- **Tokens**: JWT Bearer tokens em headers `Authorization: Bearer <token>`
+- **Backend**: middleware valida tokens JWT e injeta `req.user`
+
+## Banco de dados (Supabase PostgreSQL)
+
+Documente aqui as tabelas principais do seu projeto conforme for criando.
+
 ## Arquivos-chave
 
-Liste aqui os arquivos mais importantes do seu projeto:
 - `frontend/app/(dashboard)/page.tsx` — pagina principal
+- `frontend/components/AppSidebar.tsx` — sidebar com navegacao
 - `backend/src/index.ts` — entry point do servidor
 - `backend/src/database/supabase.ts` — configuracao do banco
