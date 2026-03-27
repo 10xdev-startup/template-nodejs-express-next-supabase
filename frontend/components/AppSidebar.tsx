@@ -24,12 +24,10 @@ function AppSidebar() {
   const pathname  = usePathname()
   const { setOpen, isMobile } = useSidebar()
 
-  const [sidebarMode, setSidebarMode] = useState<SidebarMode>('expanded')
-
-  useEffect(() => {
-    const saved = localStorage.getItem('sidebar-mode') as SidebarMode | null
-    if (saved) setSidebarMode(saved)
-  }, [])
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>(() => {
+    if (typeof window === 'undefined') return 'expanded'
+    return (localStorage.getItem('sidebar-mode') as SidebarMode | null) ?? 'expanded'
+  })
 
   const prevModeRef = useRef<string | null>(null)
 
