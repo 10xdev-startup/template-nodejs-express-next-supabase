@@ -6,14 +6,34 @@ description: "Fluxo padrao para organizar commits e push com quality gate integr
 # Git Commit & Push Workflow
 
 **Nunca commite automaticamente.** So commite quando o usuario pedir explicitamente (ex: "commita", "pode subir", "sobe", "commit", "push").
-Quando o usuario pedir, siga este fluxo. Se pedir para pular o quality gate ("pula", "skip", "so commita"), va direto para a etapa 3.
+
+## Modos de execucao
+
+### 1) Commit rapido (default quando usuario pedir so "commit")
+
+Use quando o usuario pedir apenas **commit** (ex: "commita", "pode subir", "so commit", "so commita"):
+
+- Rode `git status` + `git diff --stat` + `git diff` por grupo de arquivos
+- Rode **sempre** `npm run lint`
+- Monte e apresente a **tabela de commits por arquivos**
+- Nao rode `npm run build` automaticamente
+- Aguarde "ok" do usuario para executar o(s) commit(s)
+
+### 2) Commit completo (somente quando usuario pedir "completo")
+
+Use quando o usuario pedir explicitamente **completo** (ex: "commit completo", "faz o completo", "quality gate completo"):
+
+- Faca tudo do modo rapido
+- Rode tambem `npm run build`
+- Apresente tabela enriquecida com status
+- Aguarde "ok" do usuario para executar o(s) commit(s)
 
 ## 1. Analisar alteracoes pendentes
 
 - Rode `git status` e `git diff --stat` para listar todos os arquivos modificados
 - Rode `git diff` por grupo de arquivos para entender cada mudanca
 
-## 2. Quality Gate (lint + build)
+## 2. Quality Gate por modo
 
 ### Lint (sempre)
 
@@ -24,14 +44,20 @@ npm run lint
 - **Sempre roda**, independente do tamanho da mudanca
 - Se falhar, corrija os erros e rode novamente. Nao prossiga ate passar.
 
-### Build (condicional)
+### Build (somente no completo)
 
 ```bash
 npm run build
 ```
 
-Rode **apenas** se: 3+ arquivos alterados, **ou** mudancas em `types/`, `tsconfig`, `package.json`, arquivos de config.
+Rode no modo **completo**.
 Se falhar, corrija e rode novamente. Nao prossiga ate passar.
+
+**Frontend com limitacao de memoria (WSL):**
+```bash
+cd frontend && NODE_OPTIONS="--max-old-space-size=4096" npm run build
+```
+Use quando o build crashar por falta de memoria no WSL (erro de heap ou crash do terminal).
 
 ## 3. Agrupar por responsabilidade
 
