@@ -17,6 +17,7 @@ type SidebarMode = 'expanded' | 'collapsed' | 'hover'
 
 const NAV_ITEMS = [
   { href: '/', title: 'Início', icon: '🏠' },
+  { href: '/componentes', title: 'Componentes', icon: '🧩' },
 ]
 
 function AppSidebar() {
