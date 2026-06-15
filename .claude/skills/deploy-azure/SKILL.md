@@ -1,11 +1,13 @@
 ---
 name: deploy-azure
-description: "Guia de deploy na Azure com Container Registry + App Service. Use quando o usuario pedir para deployar, subir para Azure, ou configurar infraestrutura Azure."
+description: "Guia de deploy na Azure (Container Registry + App Service) e ligacao do auto-deploy (GitHub Actions). Use quando o usuario pedir para deployar, subir para Azure, ou configurar infraestrutura Azure."
 ---
 
 # Deploy Azure
 
 Quando o usuario invocar esta skill, pergunte o **slug do projeto** caso nao esteja claro pelo contexto (ex: `10xmkt`, `minhaloja`). Derive os nomes dos recursos a partir do slug e apresente a tabela de nomes antes de exibir qualquer comando.
+
+> Esta skill cobre o **setup inicial da infra** (passos 01–10) **e a ligacao do auto-deploy** via GitHub Actions (passo 11). O `.github/workflows/deploy.yml` vem com placeholders `seu-...` e **aborta no preflight** ate ser configurado — o passo 11 é o que preenche o `env:` do workflow + os secrets. **Avise o usuario disso**: sem preencher, o push na `main` falha de proposito.
 
 ## Regra de nomes
 
@@ -203,4 +205,33 @@ curl https://web-backend-{slug}.azurewebsites.net/health
 
 - **Frontend:** `https://web-frontend-{slug}.azurewebsites.net`
 - **Backend:** `https://web-backend-{slug}.azurewebsites.net/health`
+
+---
+
+## 11 — CI/CD: auto-deploy no push (GitHub Actions)
+
+A infra ja existe; agora ligue o **auto-deploy** (push na `main` → deploy). Edite o bloco `env:` de `.github/workflows/deploy.yml` com os nomes derivados do `{slug}`:
+
+| `env:` do workflow | Valor |
+|---|---|
+| `ACR_NAME` | `cr{slug}` |
+| `RESOURCE_GROUP` | `resource-{slug}` |
+| `BACKEND_APP` | `web-backend-{slug}` |
+| `FRONTEND_APP` | `web-frontend-{slug}` |
+| `BACKEND_IMAGE` | `{slug}-backend` |
+| `FRONTEND_IMAGE` | `{slug}-frontend` |
+| `BACKEND_PUBLIC_URL` | `https://web-backend-{slug}.azurewebsites.net` |
+
+Configure os **Secrets** do repo (Settings → Secrets and variables → Actions):
+- `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` — do service principal (OIDC)
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — baked no build do front
+
+> **Enquanto o `env:` tiver `seu-...`, o workflow aborta no preflight** com erro — por isso é importante passar por aqui. Depois de preenchido, todo push na `main` deploya sozinho (e da pra disparar manual via "Run workflow").
+
+Service principal pro OIDC (se ainda nao existe):
+```bash
+az ad sp create-for-rbac --name "sp-{slug}-deploy" \
+  --role contributor \
+  --scopes /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/resource-{slug}
+```
 
