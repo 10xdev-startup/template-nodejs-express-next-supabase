@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup,
@@ -17,24 +17,66 @@ type SidebarMode = 'expanded' | 'collapsed' | 'hover'
 
 const NAV_ITEMS = [
   { href: '/', title: 'Início', icon: '🏠' },
+  { href: '/componentes', title: 'Componentes', icon: '🧩' },
 ]
+
+const SIDEBAR_MODE_KEY = 'sidebar-mode'
+const SIDEBAR_MODE_EVENT = 'sidebar-mode-change'
+
+function readSidebarMode(): SidebarMode {
+  const stored = localStorage.getItem(SIDEBAR_MODE_KEY)
+  return stored === 'collapsed' || stored === 'hover' ? stored : 'expanded'
+}
+
+function subscribeSidebarMode(callback: () => void): () => void {
+  window.addEventListener(SIDEBAR_MODE_EVENT, callback)
+  window.addEventListener('storage', callback)
+  return () => {
+    window.removeEventListener(SIDEBAR_MODE_EVENT, callback)
+    window.removeEventListener('storage', callback)
+  }
+}
+
+// Lê o modo persistido sem causar hydration mismatch. O snapshot do server é
+// sempre 'expanded', então a primeira renderização do client é idêntica à do
+// server; o valor salvo é aplicado logo após a hidratação. Usa useSyncExternalStore
+// (em vez de useState + effect) por ser a forma idiomática de ler um sistema
+// externo e por não cair na regra react-hooks/set-state-in-effect.
+function usePersistedSidebarMode() {
+  const mode = React.useSyncExternalStore(
+    subscribeSidebarMode,
+    readSidebarMode,
+    () => 'expanded' as SidebarMode
+  )
+  const setMode = React.useCallback((next: SidebarMode) => {
+    localStorage.setItem(SIDEBAR_MODE_KEY, next)
+    window.dispatchEvent(new Event(SIDEBAR_MODE_EVENT))
+  }, [])
+  return [mode, setMode] as const
+}
+
+// false no server e na primeira renderização do client; true após a hidratação.
+// Usado para adiar a montagem do DropdownMenu (que gera ids do Radix) para depois
+// do hydrate — no primeiro paint server e client renderizam o mesmo botão simples,
+// então não há id divergente e o hydration mismatch desaparece.
+const noopSubscribe = () => () => {}
+function useHydrated() {
+  return React.useSyncExternalStore(noopSubscribe, () => true, () => false)
+}
 
 function AppSidebar() {
   const router    = useRouter()
   const pathname  = usePathname()
   const { setOpen, isMobile } = useSidebar()
 
-  const [sidebarMode, setSidebarMode] = useState<SidebarMode>(() => {
-    if (typeof window === 'undefined') return 'expanded'
-    return (localStorage.getItem('sidebar-mode') as SidebarMode | null) ?? 'expanded'
-  })
+  const hydrated = useHydrated()
+  const [sidebarMode, setSidebarMode] = usePersistedSidebarMode()
 
-  const prevModeRef = useRef<string | null>(null)
+  const prevModeRef = useRef<string | null>('expanded')
 
   useEffect(() => {
     if (prevModeRef.current === sidebarMode) return
     prevModeRef.current = sidebarMode
-    localStorage.setItem('sidebar-mode', sidebarMode)
     if (isMobile) return
     setOpen(sidebarMode === 'expanded')
   }, [sidebarMode, setOpen, isMobile])
@@ -113,6 +155,11 @@ function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
+            {!hydrated ? (
+              <SidebarMenuButton className="text-muted-foreground hover:text-foreground">
+                <PanelLeft className="size-4" />
+              </SidebarMenuButton>
+            ) : (
             <DropdownMenu onOpenChange={handleDropdownChange}>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton className="text-muted-foreground hover:text-foreground">
@@ -137,6 +184,7 @@ function AppSidebar() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            )}
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
