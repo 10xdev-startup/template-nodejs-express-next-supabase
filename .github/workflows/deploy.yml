@@ -1,0 +1,92 @@
+# Workflow automatizado para deploy Docker + Azure
+# Faz build das imagens Docker (frontend e backend) e atualiza os Azure Web Apps.
+#
+# PRE-REQUISITOS (provisionar uma vez — ver skill /deploy-azure):
+#   - Resource Group, Container Registry, App Service Plan e os 2 Web Apps criados.
+#   - Service principal com role no Resource Group (federated credentials p/ OIDC).
+#
+# CONFIGURAR ANTES DE USAR:
+#   1. Ajuste o slug do projeto no bloco `env` abaixo (1 lugar so).
+#      O nome do Container Registry NAO pode ter tracos.
+#   2. Cadastre os secrets do repositorio (Settings > Secrets and variables > Actions):
+#      AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID,
+#      NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+name: Deploy Docker to Azure
+
+on:
+  push:
+    branches:
+      - main  # Executa quando ha push na branch main
+  workflow_dispatch:  # Permite execucao manual via interface do GitHub
+
+env:
+  ACR_NAME: crmeuprojeto                          # Container Registry (sem tracos)
+  REGISTRY: crmeuprojeto.azurecr.io
+  RESOURCE_GROUP: resource-meu-projeto
+  BACKEND_APP: web-backend-meu-projeto
+  FRONTEND_APP: web-frontend-meu-projeto
+  BACKEND_IMAGE: crmeuprojeto.azurecr.io/meu-projeto-backend:latest
+  FRONTEND_IMAGE: crmeuprojeto.azurecr.io/meu-projeto-frontend:latest
+
+jobs:
+  docker-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read          # Necessario para checkout do codigo
+      id-token: write         # Necessario para autenticacao Azure (OIDC)
+
+    steps:
+      # STEP 1: Baixar codigo do repositorio
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # STEP 2: Login no Azure usando service principal (OIDC)
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # STEP 3: Login no Azure Container Registry
+      - name: Login to Azure Container Registry
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      # STEP 4: Build e push da imagem do backend
+      - name: Build and push backend Docker image
+        run: |
+          docker build -t ${{ env.BACKEND_IMAGE }} ./backend
+          docker push ${{ env.BACKEND_IMAGE }}
+
+      # STEP 5: Build e push da imagem do frontend
+      # As NEXT_PUBLIC_* sao embutidas no build — precisam estar disponiveis aqui.
+      - name: Build and push frontend Docker image
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL=https://${{ env.BACKEND_APP }}.azurewebsites.net \
+            --build-arg NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
+            --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
+            -t ${{ env.FRONTEND_IMAGE }} \
+            ./frontend
+          docker push ${{ env.FRONTEND_IMAGE }}
+
+      # STEP 6: Apontar os Web Apps para as novas imagens
+      - name: Deploy containers to Azure Web Apps
+        run: |
+          az webapp config container set \
+            --name ${{ env.BACKEND_APP }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --docker-custom-image-name ${{ env.BACKEND_IMAGE }}
+
+          az webapp config container set \
+            --name ${{ env.FRONTEND_APP }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --docker-custom-image-name ${{ env.FRONTEND_IMAGE }}
+
+      # STEP 7: Restart dos Web Apps para carregar as novas imagens
+      - name: Restart Azure Web Apps
+        run: |
+          az webapp restart --name ${{ env.BACKEND_APP }} --resource-group ${{ env.RESOURCE_GROUP }}
+          az webapp restart --name ${{ env.FRONTEND_APP }} --resource-group ${{ env.RESOURCE_GROUP }}
+          echo "✅ Deploy automatizado concluido com sucesso!"
