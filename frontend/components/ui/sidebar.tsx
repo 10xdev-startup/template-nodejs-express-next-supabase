@@ -587,7 +587,9 @@ function SidebarMenuButton({
     />
   )
 
-  if (!tooltip) {
+  // Tooltip só faz sentido quando a sidebar está colapsada (modo ícone) e em desktop.
+  // Montar o Tooltip sempre gera ids do Radix que divergem entre server e client (hydration mismatch).
+  if (!tooltip || state !== "collapsed" || isMobile) {
     return button
   }
 
