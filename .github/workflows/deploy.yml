@@ -21,13 +21,13 @@ on:
   workflow_dispatch:  # Permite execucao manual via interface do GitHub
 
 env:
-  ACR_NAME: crmeuprojeto                          # Container Registry (sem tracos)
-  REGISTRY: crmeuprojeto.azurecr.io
-  RESOURCE_GROUP: resource-meu-projeto
-  BACKEND_APP: web-backend-meu-projeto
-  FRONTEND_APP: web-frontend-meu-projeto
-  BACKEND_IMAGE: crmeuprojeto.azurecr.io/meu-projeto-backend:latest
-  FRONTEND_IMAGE: crmeuprojeto.azurecr.io/meu-projeto-frontend:latest
+  ACR_NAME: cr10xdevstarterkit                    # Container Registry (sem tracos)
+  REGISTRY: cr10xdevstarterkit.azurecr.io
+  RESOURCE_GROUP: resource-10xdev-starter-kit
+  BACKEND_APP: web-backend-10xdev-starter-kit
+  FRONTEND_APP: web-frontend-10xdev-starter-kit
+  BACKEND_IMAGE: cr10xdevstarterkit.azurecr.io/10xdev-starter-kit-backend:latest
+  FRONTEND_IMAGE: cr10xdevstarterkit.azurecr.io/10xdev-starter-kit-frontend:latest
 
 jobs:
   docker-deploy:
