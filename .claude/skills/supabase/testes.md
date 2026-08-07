@@ -15,8 +15,8 @@ Jest unit/contract
 
 Usar dois usuarios de teste reais:
 
-- usuario A, com uma linha/projeto A conhecido;
-- usuario B, com uma linha/projeto B conhecido.
+- usuario A, com a propria linha `users` conhecida;
+- usuario B, com a propria linha `users` conhecida.
 
 Guardar JWT em arquivo temporario restrito e nunca imprimir. Todo teste negativo precisa de uma
 linha-alvo conhecida; `[]` sozinho pode significar RLS correta, tabela vazia, filtro ou JWT errado.

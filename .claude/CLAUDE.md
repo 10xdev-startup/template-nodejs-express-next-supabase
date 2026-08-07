@@ -206,10 +206,9 @@ Use dollar-quoting (`$$...$$`) nas strings dentro do SQL pra nao escapar aspas n
 ### Tabelas da fundacao
 
 - **`users`** — perfil da aplicacao, espelha `auth.users`.
-- **`projects`** — projeto pertencente ao usuario por `user_id`.
 
 O contrato completo de constraints, indices, triggers, grants e RLS fica na skill
-`10x-inicio-projeto`; nao improvisar DDL parcial a partir desta lista.
+`supabase`. Tabelas de dominio sao definidas pelo briefing; nao improvisar DDL parcial.
 
 ## Arquivos-chave
 

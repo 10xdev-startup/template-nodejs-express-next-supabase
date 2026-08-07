@@ -21,29 +21,20 @@ Management API
 O template usa ownership direto:
 
 - `users.id = auth.uid()`;
-- `projects.user_id = auth.uid()`;
-- tabela privada do usuario recebe `user_id`;
-- tabela pertencente a projeto recebe `project_id` e comprova o dono por `projects.user_id`.
+- toda tabela privada de dominio criada depois recebe `user_id`.
 
-Exemplo para uma tabela pertencente a projeto:
+Exemplo para uma tabela privada de dominio:
 
 ```sql
-create policy records_select_own_project
+create policy records_select_own
 on public.<records>
 for select
 to authenticated
-using (
-  exists (
-    select 1
-    from public.projects p
-    where p.id = <records>.project_id
-      and p.user_id = (select auth.uid())
-  )
-);
+using (<records>.user_id = (select auth.uid()));
 ```
 
-Indexar `projects(user_id)` e a FK `<records>(project_id)`. Para INSERT/UPDATE, usar `WITH CHECK`
-equivalente; para UPDATE, combinar `USING` e `WITH CHECK`.
+Indexar `<records>(user_id)` quando o acesso usar esse filtro. Para INSERT/UPDATE, usar
+`WITH CHECK` equivalente; para UPDATE, combinar `USING` e `WITH CHECK`.
 
 ## Desenhar policies
 

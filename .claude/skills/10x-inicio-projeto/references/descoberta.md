@@ -40,8 +40,8 @@ Default: dashboard apenas resume; cada recurso da sidebar ganha sua propria rota
 
 ### Conta e ownership
 
-Confirmar em linguagem simples que cada pessoa ve apenas os proprios dados. A fundacao usa
-`user_id` direto em `projects` e em toda tabela privada criada depois.
+Confirmar em linguagem simples que cada pessoa ve apenas os proprios dados. A fundacao cria
+somente `users`; toda tabela privada de dominio criada depois recebe `user_id`.
 
 ### Autenticacao
 

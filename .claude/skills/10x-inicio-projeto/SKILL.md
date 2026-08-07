@@ -83,8 +83,8 @@ componentes, escrever o mapa `recurso -> rota -> objetivo -> estado vazio/loadin
 ### 4. Preparar Supabase com contrato explícito
 
 Ler [references/supabase-foundation.md](references/supabase-foundation.md) e invocar `$supabase`
-para a passagem de fundacao. A fundacao inicial deve conter apenas `users` e `projects`, com
-ownership direto por `user_id`. A skill `supabase` e dona do SQL e da operacao administrativa.
+para a passagem de fundacao. A fundacao inicial deve conter apenas `users`. Tabelas de dominio
+nascem depois a partir do briefing. A skill `supabase` e dona do SQL e da operacao administrativa.
 
 Antes de aplicar DDL:
 
@@ -129,11 +129,16 @@ npm run lint
 Rodar apenas testes relacionados ao diff. Subir `npm run dev`, verificar frontend 3000,
 backend 3001, auth, uma rota protegida, um CRUD owner-scoped e um erro.
 
-Como ultimo gate local, invocar `$supabase` em modo auditoria: repetir inventario, constraints,
-indices, RLS e grants; testar usuario A contra A/B, anonimo e o caminho service role filtrado pelo
-Model. Somente depois perguntar: “Quer partir para o deploy na Azure agora?”. Invocar
-`deploy-azure` apenas se o usuario confirmar; uma resposta negativa encerra o bootstrap local sem
-publicar nada.
+Como ultimo gate local, executar o checklist completo do plano e apresentar uma tabela
+`verificacao -> evidencia -> status`. Incluir worktree/branch, diff e segredos, validador do
+bootstrap, testes pertinentes, typecheck, lint, build, smoke do fluxo vertical, auth, ownership,
+erros, Docker/workflow e `$supabase` em modo auditoria. Qualquer falha bloqueia o deploy.
+
+Somente com todos os gates aprovados, perguntar: “Quer partir para o deploy na Azure agora? A
+skill vai ler as variaveis de `backend/.env` e `frontend/.env.local` sem mostrar os valores,
+apresentar os recursos e custos escolhidos e pedir um novo OK antes de executar a Azure CLI.”
+Invocar `deploy-azure` apenas se o usuario responder sim. Uma resposta negativa encerra o
+bootstrap local sem publicar nada.
 
 ## Gates de conclusão
 
@@ -151,7 +156,7 @@ Nao declarar pronto enquanto algum item falhar:
 - sem arquivo-deus ou componente monolitico sem justificativa;
 - testes focados, typecheck, lint e smoke local passam;
 - mutacoes externas e deploy foram aprovados.
-- `$supabase` criou/validou a fundacao e concluiu a auditoria final, ou o bloqueio por credencial
+- `$supabase` criou/validou `users` e concluiu a auditoria final, ou o bloqueio por credencial
   ausente foi registrado sem alegar banco pronto;
 - skills especializadas aplicaveis foram executadas ou dispensadas com motivo registrado.
 

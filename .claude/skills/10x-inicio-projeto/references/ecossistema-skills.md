@@ -42,8 +42,8 @@ gate relevante.
 
 - Skill marcada `MANUAL TRIGGER ONLY`: sugerir com motivo e aguardar o usuario invocar.
 - `commit` e `pr`: nunca inferir autorizacao a partir de “termina” ou “deixa pronto”.
-- `deploy-azure`: mostrar slug e nomes dos recursos antes dos comandos; usar placeholders
-  do workflow como preflight que falha fechado.
+- `deploy-azure`: receber as evidencias do gate local, ler envs sem exibir valores, mostrar alvo,
+  recursos, SKUs e mutacoes e aguardar um novo OK antes de qualquer comando Azure mutante.
 - `careful`: ativar antes de operacao destrutiva/live, sem ampliar o escopo autorizado.
 - `supabase`: executar fundacao antes do CRUD e auditoria como ultimo gate local; nunca testar RLS
   com service role.

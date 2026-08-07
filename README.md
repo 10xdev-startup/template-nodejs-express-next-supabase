@@ -59,7 +59,8 @@ O backend segue Routes → Controller → Model → Database. Controllers respon
 
 Use `$10x-inicio-projeto` para definir produto, identidade, rotas, ownership, variáveis e o
 primeiro fluxo vertical. A fundação Supabase proposta pela skill contém somente `users` e
-`projects`, com RLS por `user_id`. A execução e a auditoria do banco são delegadas a `$supabase`.
+RLS por usuário. Tabelas de domínio nascem do briefing. A execução e a auditoria do banco são
+delegadas a `$supabase`.
 
 O `proxy.ts` base apenas renova a sessão. A skill define as rotas públicas e protegidas conforme
 o briefing, sem presumir a navegação do produto.

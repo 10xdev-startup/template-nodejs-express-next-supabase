@@ -1,6 +1,6 @@
 ---
 name: supabase
-description: Operar e diagnosticar o Supabase de projetos criados pelo template 10xDev. Usar para criar a fundacao inicial users/projects, inspecionar ou alterar schema, constraints, indices, RLS, grants, functions, Auth, Realtime, Storage e paginacao PostgREST; testar isolamento com JWT; ou investigar acesso negado, dados vazando e divergencia entre service role e usuario autenticado. A skill resolve o projeto pelas variaveis locais, faz preflight read-only, pede aprovacao antes de DDL e prova as postconditions sem expor segredos.
+description: Operar e diagnosticar o Supabase de projetos criados pelo template 10xDev. Usar para criar a fundacao inicial users, inspecionar ou alterar schema, constraints, indices, RLS, grants, functions, Auth, Realtime, Storage e paginacao PostgREST; testar isolamento com JWT; ou investigar acesso negado, dados vazando e divergencia entre service role e usuario autenticado. A skill resolve o projeto pelas variaveis locais, faz preflight read-only, pede aprovacao antes de DDL e prova as postconditions sem expor segredos.
 ---
 
 # Supabase
@@ -19,7 +19,7 @@ Nunca usar sucesso com service role como prova de RLS. Provar policies com anon 
 
 | Tarefa | Ler |
 |---|---|
-| Criar o ponto zero `users` + `projects` | [fundacao.md](fundacao.md) |
+| Criar o ponto zero `users` | [fundacao.md](fundacao.md) |
 | Inspecionar/aplicar DDL, constraints, grants, indices ou backfill | [operacao.md](operacao.md) |
 | Projetar RLS, Auth, Realtime, clients, views ou RPCs | [rls-e-auth.md](rls-e-auth.md) |
 | Criar bucket ou operar upload/download e policies de arquivo | [storage.md](storage.md) |
@@ -50,7 +50,7 @@ tabela exposta.
 - Nunca criar `SECURITY DEFINER` por conveniencia; justificar, fixar `search_path`, qualificar
   objetos, validar caller e restringir grants.
 - Nunca aplicar DDL sem alvo, estado atual, transacao, rollback e postconditions definidos.
-- Manter a fundacao inicial estritamente em `users` e `projects`; criar outra tabela somente por
+- Manter a fundacao inicial estritamente em `users`; criar outra tabela somente por
   requisito real do briefing.
 
 ## Aprendizado reutilizavel

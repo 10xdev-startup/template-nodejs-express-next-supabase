@@ -1,18 +1,18 @@
-# Fundacao `users` e `projects`
+# Fundacao `users`
 
-Usar somente ownership individual. `users.id` espelha `auth.users.id`; `projects.user_id`
-identifica o dono. Nao adicionar uma terceira tabela no ponto zero.
+O ponto zero cria somente `public.users`, espelhando `auth.users`. Qualquer tabela de dominio
+nasce depois, a partir dos recursos e invariantes confirmados no briefing.
 
 ## Contrato
 
-- `users`: identidade da aplicacao, papel global, status e onboarding.
-- `projects`: projeto privado com slug unico por usuario.
-- PKs UUID, timestamps e trigger central de `updated_at`.
-- RLS e grants por dono desde a criacao.
-- Service role continua obrigado a filtrar pelo dono no Model.
+- `users.id = auth.users.id` com exclusao em cascata.
+- Email obrigatorio no default de autenticacao do template.
+- Papel global, status, onboarding e timestamps.
+- Trigger idempotente para criar a linha da aplicacao.
+- RLS e grants para cada usuario acessar somente a propria linha.
 
-O default do template usa login que fornece email. Se o produto aceitar identidade sem email,
-parar e adaptar o contrato antes de aplicar; nao converter email ausente em string vazia.
+Se o produto aceitar identidade sem email, parar e adaptar o contrato antes de aplicar; nunca
+converter email ausente em string vazia.
 
 ## Validar sem persistir
 
@@ -38,30 +38,6 @@ create table if not exists public.users (
   constraint users_avatar_url_length check (avatar_url is null or char_length(avatar_url) <= 2048)
 );
 
-create table if not exists public.projects (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.users(id) on delete cascade,
-  name text not null,
-  slug text not null,
-  description text,
-  status text not null default 'active' check (status in ('active', 'archived')),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint projects_name_not_blank check (btrim(name) <> ''),
-  constraint projects_name_length check (char_length(name) <= 120),
-  constraint projects_slug_format check (
-    char_length(slug) between 1 and 60
-    and slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'
-  ),
-  constraint projects_description_length check (
-    description is null or char_length(description) <= 5000
-  ),
-  constraint projects_slug_per_user_unique unique (user_id, slug)
-);
-
-create index if not exists projects_user_status_idx
-  on public.projects (user_id, status, updated_at desc);
-
 create or replace function public.touch_updated_at()
 returns trigger
 language plpgsql
@@ -77,11 +53,6 @@ $$;
 drop trigger if exists users_touch_updated_at on public.users;
 create trigger users_touch_updated_at
 before update on public.users
-for each row execute function public.touch_updated_at();
-
-drop trigger if exists projects_touch_updated_at on public.projects;
-create trigger projects_touch_updated_at
-before update on public.projects
 for each row execute function public.touch_updated_at();
 
 create or replace function public.guard_users_sensitive_columns()
@@ -144,12 +115,9 @@ after insert on auth.users
 for each row execute function public.handle_new_user();
 
 alter table public.users enable row level security;
-alter table public.projects enable row level security;
 
 revoke all on table public.users from anon, authenticated;
-revoke all on table public.projects from anon, authenticated;
 grant select, update on table public.users to authenticated;
-grant select, insert, update, delete on table public.projects to authenticated;
 
 drop policy if exists users_select_own on public.users;
 create policy users_select_own on public.users
@@ -160,24 +128,6 @@ create policy users_update_own on public.users
 for update to authenticated
 using ((select auth.uid()) = id)
 with check ((select auth.uid()) = id);
-
-drop policy if exists projects_select_own on public.projects;
-create policy projects_select_own on public.projects
-for select to authenticated using ((select auth.uid()) = user_id);
-
-drop policy if exists projects_insert_own on public.projects;
-create policy projects_insert_own on public.projects
-for insert to authenticated with check ((select auth.uid()) = user_id);
-
-drop policy if exists projects_update_own on public.projects;
-create policy projects_update_own on public.projects
-for update to authenticated
-using ((select auth.uid()) = user_id)
-with check ((select auth.uid()) = user_id);
-
-drop policy if exists projects_delete_own on public.projects;
-create policy projects_delete_own on public.projects
-for delete to authenticated using ((select auth.uid()) = user_id);
 
 revoke all on function public.touch_updated_at() from public, anon, authenticated;
 revoke all on function public.guard_users_sensitive_columns() from public, anon, authenticated;
@@ -190,8 +140,7 @@ rollback;
 
 ## Postconditions
 
-1. Confirmar somente `users` e `projects` como tabelas da fundacao.
-2. Confirmar RLS habilitada, grants minimos e definicoes exatas das policies.
-3. Confirmar constraints validadas e indice `projects_user_status_idx` presente.
-4. Testar usuario A em projeto A, usuario B em projeto B e acesso cruzado negado.
-5. Testar anonimo sem JWT e service role pelo Model com filtro de dono.
+1. Confirmar `users` como unica tabela da fundacao.
+2. Confirmar RLS, grants, constraints, triggers e functions pelas definicoes finais.
+3. Testar usuario A lendo/editando A e sem acesso a B; repetir para B.
+4. Testar anonimo sem JWT e o backend com service role buscando pelo `id` autenticado.

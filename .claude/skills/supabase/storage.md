@@ -10,7 +10,7 @@ independentemente de SELECT policy.
 Usar path controlado pelo servidor:
 
 ```text
-<user_id>/<project_id>/<object_id>-<safe-name>
+<user_id>/<object_id>-<safe-name>
 ```
 
 Nao confiar em nome, MIME, extensao ou path enviados pelo navegador. Definir limite de tamanho,

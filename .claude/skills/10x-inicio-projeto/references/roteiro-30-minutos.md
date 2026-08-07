@@ -42,10 +42,13 @@ Gate: uma acao real persiste e reaparece apos refresh.
 ## 25–30 min — Verificar e publicar
 
 - Validador em modo project, testes focados, typecheck e lint.
+- Build dos dois workspaces e verificacao dos Dockerfiles/workflow.
 - Smoke local de auth, CRUD e ownership.
 - Invocar `$supabase` em auditoria final e provar isolamento pelas duas fronteiras.
 - Revisar diff por segredo/placeholder.
-- Invocar `deploy-azure` e pedir aprovacao antes de mutar producao.
+- Apresentar o checklist completo; qualquer falha bloqueia publicacao.
+- Perguntar se o usuario quer deploy e explicar que os envs serao lidos sem mostrar valores.
+- Invocar `deploy-azure`; mostrar alvo e pedir novo OK antes de mutar pela Azure CLI.
 - Se o usuario nao quiser deploy, encerrar com o fluxo local pronto e os proximos passos.
 
 Gate: URLs, health/readiness e rollback conhecido.

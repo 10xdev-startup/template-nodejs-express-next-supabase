@@ -12,7 +12,7 @@ Produto: <nome e slug>
 Project ref confirmado: <sim/nao; nunca expor token>
 Ownership: individual por user_id
 Auth: <providers e email obrigatorio ou opcional>
-Tabelas da fundacao: users, projects
+Tabelas da fundacao: users
 Operacoes por tabela: <select/insert/update/delete>
 Delete policy: <cascade/restrict/soft delete>
 Limites: <nome, slug, descricao, quantidade>
@@ -25,7 +25,7 @@ Autorizacao para DDL: <sim/nao>
 1. **Fundacao:** invocar `$supabase` com `fundacao.md`, validar com `rollback`, pedir aprovacao e
    aplicar somente se autorizado.
 2. **Auditoria final:** depois do fluxo vertical, invocar `$supabase` novamente para inventariar
-   o estado final e provar A→A, A↛B, anonimo negado e service role filtrada no Model.
+   o estado final e provar A→A, A↛B, anonimo negado e service role filtrada pelo id autenticado.
 
 Se faltarem credenciais, gerar apenas o contrato e deixar a aplicacao conectada bloqueada. Nunca
 simular que o banco foi aplicado ou que RLS foi testada.
