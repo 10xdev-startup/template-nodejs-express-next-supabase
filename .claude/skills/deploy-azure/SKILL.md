@@ -79,7 +79,7 @@ az acr build \
   --registry cr{slug} \
   --image {slug}-backend:latest \
   --file backend/Dockerfile \
-  backend/
+  .
 
 # Build e push — Frontend (NEXT_PUBLIC_* embutidas no build)
 az acr build \
@@ -87,9 +87,10 @@ az acr build \
   --image {slug}-frontend:latest \
   --file frontend/Dockerfile \
   --build-arg "NEXT_PUBLIC_API_URL=https://web-backend-{slug}.azurewebsites.net" \
+  --build-arg "NEXT_PUBLIC_APP_NAME=<APP_NAME>" \
   --build-arg "NEXT_PUBLIC_SUPABASE_URL=<SUPABASE_URL>" \
   --build-arg "NEXT_PUBLIC_SUPABASE_ANON_KEY=<SUPABASE_ANON_KEY>" \
-  frontend/
+  .
 ```
 
 Registrar provider Microsoft.Web:
@@ -214,6 +215,7 @@ A infra ja existe; agora ligue o **auto-deploy** (push na `main` → deploy). Ed
 
 | `env:` do workflow | Valor |
 |---|---|
+| `APP_NAME` | nome exibido do produto |
 | `ACR_NAME` | `cr{slug}` |
 | `RESOURCE_GROUP` | `resource-{slug}` |
 | `BACKEND_APP` | `web-backend-{slug}` |
@@ -234,4 +236,3 @@ az ad sp create-for-rbac --name "sp-{slug}-deploy" \
   --role contributor \
   --scopes /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/resource-{slug}
 ```
-
