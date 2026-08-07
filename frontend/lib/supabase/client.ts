@@ -14,6 +14,12 @@ function readBrowserConfig(): { url: string; key: string } {
   return { url, key }
 }
 
+/**
+ * Client de browser memoizado. NAO instancie no escopo do modulo: o Next
+ * prerenderiza componentes `'use client'` no build, e um `createClient()` no load
+ * derruba `next build` com "Credenciais publicas do Supabase nao configuradas"
+ * em qualquer maquina sem `.env.local`. Chame dentro de quem realmente usa.
+ */
 export function createClient(): SupabaseClient {
   if (browserClient) return browserClient
 
@@ -21,5 +27,3 @@ export function createClient(): SupabaseClient {
   browserClient = createBrowserClient(url, key)
   return browserClient
 }
-
-export const supabase = createClient()
