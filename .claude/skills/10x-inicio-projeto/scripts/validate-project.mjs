@@ -114,6 +114,63 @@ for (const file of filesUnder('frontend/components')) {
   }
 }
 
+// --- Armadilhas do template -------------------------------------------------
+// Cada check abaixo nasceu de um bug que passou por typecheck, lint e testes.
+// Ver references/armadilhas-template.md para o sintoma completo de cada um.
+
+// 1) Client/env resolvido no escopo do modulo. O Next prerenderiza componentes
+//    'use client' no build, entao instanciar no load quebra `next build` em toda
+//    maquina sem .env.local — e o erro aponta para a pagina, nao para a causa.
+//    Detecta so atribuicao em coluna 0 (escopo de modulo); dentro de funcao e ok.
+for (const file of [...filesUnder('frontend/lib'), ...filesUnder('frontend/services')]) {
+  if (!/\.(ts|tsx)$/.test(file) || /\.d\.ts$/.test(file)) continue
+  const source = readFileSync(file, 'utf8')
+  const label = relative(root, file)
+  if (/^(?:export\s+)?const\s+\w+\s*=\s*(?:await\s+)?create\w*Client\s*\(/m.test(source)) {
+    errors.push(`client instanciado no load do modulo (quebra next build sem env): ${label}`)
+  }
+  if (/^(?:export\s+)?const\s+\w+\s*=\s*process\.env\b/m.test(source)) {
+    errors.push(`env lida no escopo do modulo (congela valor e quebra prerender): ${label}`)
+  }
+}
+
+// 2) `jest.mock("@/...")` so resolve com moduleNameMapper. O next/jest so o gera
+//    sozinho quando o tsconfig declara `baseUrl` — sem isso o SWC reescreve o
+//    alias nos imports, mas a string do jest.mock fica intacta e falha.
+const frontendTsconfigPath = join(root, 'frontend/tsconfig.json')
+const jestConfigPath = join(root, 'frontend/jest.config.mjs')
+if (existsSync(frontendTsconfigPath) && existsSync(jestConfigPath)) {
+  // tsconfig do Next aceita comentarios; remove antes de parsear.
+  const raw = readFileSync(frontendTsconfigPath, 'utf8').replace(/\/\/.*$/gm, '')
+  let hasBaseUrl = false
+  try {
+    hasBaseUrl = Boolean(JSON.parse(raw).compilerOptions?.baseUrl)
+  } catch {
+    warnings.push('nao foi possivel parsear frontend/tsconfig.json para checar baseUrl')
+  }
+  const hasMapper = readFileSync(jestConfigPath, 'utf8').includes('moduleNameMapper')
+  if (!hasBaseUrl && !hasMapper) {
+    errors.push(
+      'frontend/jest.config.mjs sem moduleNameMapper e tsconfig sem baseUrl: jest.mock("@/...") vai falhar',
+    )
+  }
+}
+
+// 3) `jest.mock` so e hoistado pelo SWC quando `jest` e o GLOBAL. Importar `jest`
+//    de "@jest/globals" desliga o hoisting: o mock NAO aplica, o teste exercita o
+//    modulo real e passa ou falha por engano — sem nenhuma mensagem de erro.
+for (const file of filesUnder('frontend/tests')) {
+  if (!/\.(ts|tsx)$/.test(file)) continue
+  const source = readFileSync(file, 'utf8')
+  if (!/\bjest\.mock\s*\(/.test(source)) continue
+  const importsJest = /import\s*\{[^}]*\bjest\b[^}]*\}\s*from\s*['"]@jest\/globals['"]/.test(source)
+  if (importsJest) {
+    errors.push(
+      `jest.mock nao vai aplicar (jest importado de @jest/globals impede o hoisting): ${relative(root, file)}`,
+    )
+  }
+}
+
 const sidebarPath = join(root, 'frontend/components/AppSidebar.tsx')
 if (existsSync(sidebarPath)) {
   const sidebar = readFileSync(sidebarPath, 'utf8')

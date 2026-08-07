@@ -9,6 +9,13 @@ import { TextEncoder, TextDecoder } from "node:util"
 
 const globalAny = globalThis as unknown as Record<string, unknown>
 
+// 1.5) Envs publicas do Supabase. `lib/supabase/client.ts` cria o client no LOAD do
+//      modulo e lanca sem credencial, entao qualquer teste que importe `services/`
+//      (direta ou transitivamente) quebraria no import. Valores fake de propósito:
+//      teste nao fala com Supabase real — mocke a dependencia externa.
+process.env.NEXT_PUBLIC_SUPABASE_URL ??= "https://test.supabase.co"
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= "test-anon-key"
+
 // 2) Polyfills/stubs para APIs que o jsdom NÃO implementa mas que Radix/shadcn usam.
 //    Sem isto, testar Dialog/Dropdown/Tooltip/Select quebra com "X is not a function".
 

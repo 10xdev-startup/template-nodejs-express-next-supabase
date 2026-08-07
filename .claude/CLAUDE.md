@@ -81,6 +81,7 @@ Backend: `ts-jest` (env node). Frontend: `next/jest` + jsdom + Testing Library. 
   - `npm test -w backend -- -o` → so os testes afetados pelo diff git (uncommitted). Subconjunto pequeno, seguro pro WSL.
   - `npm test -w backend -- --findRelatedTests src/utils/apiResponse.ts` → os testes que tocam aquele arquivo (transitivo).
 - Mocke deps externas (`jest.mock(...)` p/ Supabase etc.); nao mocke o codigo sob teste.
+- **No frontend, `jest.mock` exige o `jest` GLOBAL** (tipado em `frontend/jest.d.ts`). Importar `jest` de `@jest/globals` faz o SWC do `next/jest` parar de hoistar a chamada: o mock **nao aplica** e o teste passa a exercitar o modulo real, sem erro nenhum. Importe so `describe`/`it`/`expect`/`beforeEach` de `@jest/globals`. No backend (`ts-jest`) o import normal funciona.
 - TDD para bug: escreva o teste que reproduz o bug **primeiro**, depois faca passar.
 - Tarefa so esta "feita" quando os testes pertinentes passam + `typecheck` + `lint`.
 

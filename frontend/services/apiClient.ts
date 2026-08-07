@@ -1,5 +1,5 @@
 import { getApiBaseUrl } from "@/lib/apiBase"
-import { supabase } from "@/lib/supabase/client"
+import { createClient } from "@/lib/supabase/client"
 import { ApiRequestError, toApiRequestError } from "@/services/apiErrors"
 
 /** Timeout default — curto, para a maioria das chamadas (blueprint §3.3). */
@@ -22,7 +22,7 @@ interface RequestOptions {
  * de auth já serve da memória e só vai à rede quando o token expira.
  */
 async function getAuthHeaders(): Promise<Record<string, string>> {
-  const { data } = await supabase.auth.getSession()
+  const { data } = await createClient().auth.getSession()
   const token = data.session?.access_token
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
@@ -136,7 +136,7 @@ async function request<T>(
     let res = await doFetch()
     // Refresh + retry no 401 mora aqui, não num cache de token (blueprint §3.2).
     if (res.status === 401) {
-      const { data } = await supabase.auth.refreshSession()
+      const { data } = await createClient().auth.refreshSession()
       if (data.session) {
         res = await doFetch()
       }

@@ -5,6 +5,9 @@ DNS, aprovacao OAuth ou propagacao Azure nao contam como trabalho instantaneo.
 
 ## 0–5 min — Decidir
 
+- **Primeiro comando, antes de qualquer pergunta:** `ls backend/.env frontend/.env.local`.
+  Sem esses arquivos o relogio nao vale — nao ha banco, auth, smoke nem deploy. Dizer isso
+  antes de combinar prazo, nao no minuto 25.
 - Entrevista curta e sintese do produto.
 - Escolher primeiro fluxo vertical e nao-objetivos.
 - Mapear recursos/rotas e ownership.
