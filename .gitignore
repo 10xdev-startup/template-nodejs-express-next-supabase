@@ -3,6 +3,7 @@ dist/
 .next/
 *.log
 .env
-.env*.local
-!.env.local
-package-lock.json
+.env.*
+!.env.example
+backend/package-lock.json
+frontend/package-lock.json
