@@ -37,11 +37,20 @@
 
 **Meu Projeto** — descreva aqui o que o projeto faz.
 
-- **Frontend**: Next.js 15, TypeScript, Tailwind CSS, shadcn/ui (Radix) — `frontend/`
+- **Frontend**: Next.js 16, TypeScript, Tailwind CSS, shadcn/ui (Radix) — `frontend/`
 - **Backend**: Node.js, Express, TypeScript, Supabase (PostgreSQL) — `backend/`
 - **Padrao backend**: Controller → Model → Database
 
 ## Comandos
+
+### Raiz (workspaces)
+```bash
+npm ci             # Instala exatamente o lockfile raiz
+npm run dev        # Frontend 3000 + backend 3001 em paralelo
+npm run typecheck  # TypeScript dos dois workspaces
+npm run lint       # ESLint dos dois workspaces
+npm run build      # Build dos dois workspaces
+```
 
 ### Frontend (`frontend/`)
 ```bash
@@ -77,7 +86,9 @@ Backend: `ts-jest` (env node). Frontend: `next/jest` + jsdom + Testing Library. 
 
 ## Deploy (Azure)
 
-**Deploy automatico ao cair na `main`** — o push dispara o GitHub Actions (`.github/workflows/deploy.yml`), que builda as imagens Docker (backend+frontend), faz push pro **Azure Container Registry** e atualiza/reinicia os **Web Apps**. Disparo manual: "Run workflow" (workflow_dispatch). Setup inicial da infra: skill `/deploy-azure`.
+**Deploy automatico depois de configurado** — o push na `main` dispara o GitHub Actions
+(`.github/workflows/deploy.yml`). Enquanto houver placeholder `seu-*`, o preflight falha fechado
+e nenhuma infraestrutura e alterada. Setup inicial da infra: skill `/deploy-azure`.
 
 **Configurar uma vez por projeto:**
 - Edite o bloco `env:` do workflow (nomes do ACR, resource group, Web Apps, imagens, URL do backend).
@@ -157,6 +168,8 @@ Convencoes:
 ## Autenticacao
 
 - **Provider**: Supabase Auth (Google OAuth)
+- **Next.js**: `frontend/proxy.ts` atualiza cookies da sessao; a protecao de rotas e definida
+  conforme o briefing do produto.
 - **Tokens**: JWT Bearer tokens em headers `Authorization: Bearer <token>`
 - **Backend**: `supabaseMiddleware` (`@/middleware`) valida o JWT via `auth.getUser(token)`, garante a linha em `users` (cria no 1º login) e injeta `req.user` (`AuthUser`, tipado em todo controller).
 - **Roles**: `req.user.role` (`UserRole = 'user' | 'admin'`). Proteja rotas com `requireRole(...roles)` / `requireAdmin` (`@/middleware`); para mais papeis, edite a union `UserRole`. Roles por recurso (membership) sao um dominio a construir por cima — nao vem no template.
@@ -179,30 +192,23 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:3001/users/me
 
 Use a **Supabase Management API via `curl`** — **NAO crie arquivos `.sql` de migration no repo**. Toda mudanca de schema/DDL (create table, alter, indices, functions, backfill) e aplicada direto pela API. `backend/src/database/` guarda apenas `supabase.ts` (config do client) — nunca apague.
 
-Chaves em `backend/.env`: `SUPABASE_URL` (o project ref e o subdominio) e `SUPABASE_ACCESS_TOKEN` (token de management, `sbp_...`). Padrao (rodar de `backend/`):
+Chaves em `backend/.env`: `SUPABASE_PROJECT_REF` e `SUPABASE_ACCESS_TOKEN` (token de management,
+`sbp_...`). Padrao (rodar de `backend/`):
 ```bash
 source .env
-REF=$(echo "$SUPABASE_URL" | sed -E 's#https://([^.]+)\..*#\1#')
-curl -s -X POST "https://api.supabase.com/v1/projects/$REF/database/query" \
+curl -s -X POST "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/database/query" \
   -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"query":"<SQL aqui>"}'
 ```
 Use dollar-quoting (`$$...$$`) nas strings dentro do SQL pra nao escapar aspas no JSON.
 
-### Tabelas principais
+### Tabelas da fundacao
 
-- **`users`** — perfil da aplicacao, espelha `auth.users`. Criada pelo `supabaseMiddleware` no 1º login (role `user`, status `active`). DDL para aplicar via curl acima:
-  ```sql
-  create table if not exists public.users (
-    id uuid primary key references auth.users(id) on delete cascade,
-    email text not null, name text, avatar_url text,
-    role text not null default 'user', status text not null default 'active',
-    onboarded_at timestamptz,
-    created_at timestamptz not null default now(),
-    updated_at timestamptz not null default now()
-  );
-  ```
+- **`users`** — perfil da aplicacao, espelha `auth.users`.
+
+O contrato completo de constraints, indices, triggers, grants e RLS fica na skill
+`supabase`. Tabelas de dominio sao definidas pelo briefing; nao improvisar DDL parcial.
 
 ## Arquivos-chave
 
@@ -223,6 +229,7 @@ Quando o pedido casa com uma skill, invoque-a com a tool Skill como **primeira a
 - Conflito de merge → `/fix-merge-conflicts`
 - Limpar codigo gerado por IA (AI slop) → `/remove-ai-slop`
 - Deploy / Azure → `/deploy-azure`
+- Supabase, schema, RLS, Auth, Storage → `/supabase`
 - Bug, erro, "por que quebrou", 500 → `/investigate`
 - QA, testar o site, achar bugs → `/qa`
 - Code review, revisar o diff → `/review` ou `/code-review`

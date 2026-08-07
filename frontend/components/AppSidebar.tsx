@@ -170,17 +170,17 @@ function AppSidebar() {
                 <DropdownMenuItem onClick={() => setSidebarMode('expanded')}>
                   <Maximize2 className="size-4 mr-2" />
                   Expandido
-                  {sidebarMode === 'expanded' && <Check className="size-4 ml-auto text-blue-600" />}
+                  {sidebarMode === 'expanded' && <Check className="size-4 ml-auto text-primary" />}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setSidebarMode('collapsed')}>
                   <Minimize2 className="size-4 mr-2" />
                   Recolhido
-                  {sidebarMode === 'collapsed' && <Check className="size-4 ml-auto text-blue-600" />}
+                  {sidebarMode === 'collapsed' && <Check className="size-4 ml-auto text-primary" />}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setSidebarMode('hover')}>
                   <MousePointerClick className="size-4 mr-2" />
                   Expandir ao passar
-                  {sidebarMode === 'hover' && <Check className="size-4 ml-auto text-blue-600" />}
+                  {sidebarMode === 'hover' && <Check className="size-4 ml-auto text-primary" />}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

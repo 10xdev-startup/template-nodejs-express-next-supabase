@@ -16,13 +16,14 @@ on:
   workflow_dispatch:
 
 env:
-  ACR_NAME: cr10xdevstarterkit # Azure Container Registry (so o nome, sem .azurecr.io)
-  RESOURCE_GROUP: resource-10xdev-starter-kit
-  BACKEND_APP: web-backend-10xdev-starter-kit # nome do Web App do backend
-  FRONTEND_APP: web-frontend-10xdev-starter-kit # nome do Web App do frontend
-  BACKEND_IMAGE: 10xdev-starter-kit-backend
-  FRONTEND_IMAGE: 10xdev-starter-kit-frontend
-  BACKEND_PUBLIC_URL: https://web-backend-10xdev-starter-kit.azurewebsites.net # backend de prod (build-arg do front)
+  APP_NAME: seu-app-name
+  ACR_NAME: seu-acr # Azure Container Registry (so o nome, sem .azurecr.io)
+  RESOURCE_GROUP: seu-resource-group
+  BACKEND_APP: seu-backend-app # nome do Web App do backend
+  FRONTEND_APP: seu-frontend-app # nome do Web App do frontend
+  BACKEND_IMAGE: seu-backend-image
+  FRONTEND_IMAGE: seu-frontend-image
+  BACKEND_PUBLIC_URL: https://seu-backend.azurewebsites.net # backend de prod (build-arg do front)
 
 jobs:
   docker-deploy:
@@ -34,7 +35,7 @@ jobs:
     steps:
       - name: Preflight — checar se o workflow foi configurado
         run: |
-          if printf '%s ' "${{ env.ACR_NAME }}" "${{ env.RESOURCE_GROUP }}" "${{ env.BACKEND_APP }}" "${{ env.FRONTEND_APP }}" "${{ env.BACKEND_IMAGE }}" "${{ env.FRONTEND_IMAGE }}" "${{ env.BACKEND_PUBLIC_URL }}" | grep -q 'seu-'; then
+          if printf '%s ' "${{ env.APP_NAME }}" "${{ env.ACR_NAME }}" "${{ env.RESOURCE_GROUP }}" "${{ env.BACKEND_APP }}" "${{ env.FRONTEND_APP }}" "${{ env.BACKEND_IMAGE }}" "${{ env.FRONTEND_IMAGE }}" "${{ env.BACKEND_PUBLIC_URL }}" | grep -q 'seu-'; then
             echo "::error::Workflow nao configurado. Edite o bloco 'env:' de .github/workflows/deploy.yml com os nomes reais dos recursos (ACR, resource group, Web Apps...) e configure os Secrets. Rode a skill /deploy-azure para o passo a passo. Abortando."
             exit 1
           fi
@@ -55,18 +56,23 @@ jobs:
 
       - name: Build and push backend image
         run: |
-          docker build -t ${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:latest ./backend
+          docker build \
+            --file backend/Dockerfile \
+            --tag ${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:latest \
+            .
           docker push ${{ env.ACR_NAME }}.azurecr.io/${{ env.BACKEND_IMAGE }}:latest
 
       - name: Build and push frontend image
         # NEXT_PUBLIC_* sao baked no build (ARGs do frontend/Dockerfile).
         run: |
           docker build \
+            --file frontend/Dockerfile \
             --build-arg NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
             --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
             --build-arg NEXT_PUBLIC_API_URL=${{ env.BACKEND_PUBLIC_URL }} \
-            -t ${{ env.ACR_NAME }}.azurecr.io/${{ env.FRONTEND_IMAGE }}:latest \
-            ./frontend
+            --build-arg NEXT_PUBLIC_APP_NAME=${{ env.APP_NAME }} \
+            --tag ${{ env.ACR_NAME }}.azurecr.io/${{ env.FRONTEND_IMAGE }}:latest \
+            .
           docker push ${{ env.ACR_NAME }}.azurecr.io/${{ env.FRONTEND_IMAGE }}:latest
 
       - name: Deploy containers to Azure Web Apps
