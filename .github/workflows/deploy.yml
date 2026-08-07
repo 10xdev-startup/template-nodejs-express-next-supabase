@@ -27,6 +27,12 @@ env:
 
 jobs:
   docker-deploy:
+    # O template nunca deve deployar: o bloco `env:` acima e placeholder de proposito,
+    # entao o preflight abortaria em todo merge e a main ficaria vermelha para sempre —
+    # sinal ruidoso que ninguem olha mais. Num projeto derivado o nome do repo e outro,
+    # a condicao e verdadeira e o job roda normalmente, inclusive falhando alto se
+    # esquecerem de configurar. Ao clonar, pode remover esta linha.
+    if: github.repository != '10xdev-startup/template-nodejs-express-next-supabase'
     runs-on: ubuntu-latest
     permissions:
       contents: read # checkout do codigo
