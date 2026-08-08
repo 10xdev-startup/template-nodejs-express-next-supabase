@@ -218,6 +218,30 @@ e so caiu no build.
 Rodar apenas testes relacionados ao diff (`npm test -w <ws> -- -o`). Subir `npm run dev`,
 verificar frontend 3000, backend 3001, auth, uma rota protegida, um CRUD owner-scoped e um erro.
 
+**Sondar a API com entrada invalida.** Nenhum gate acima faz isto, e defeito de contrato nao
+aparece lendo codigo: so aparece mandando requisicao ruim. Com o backend no ar:
+
+```bash
+curl -s -i localhost:3001/rota-que-nao-existe | head -3          # 404 + application/json
+curl -s localhost:3001/rota-que-nao-existe                        # envelope com code
+curl -s -X POST localhost:3001/<recurso> -H 'Content-Type: application/json' -d '{"a": '
+python3 -c "print('{\"a\":\"'+'x'*200000+'\"}')" | \
+  curl -s -X POST localhost:3001/<recurso> -H 'Content-Type: application/json' --data-binary @-
+```
+
+Verificar as quatro coisas:
+
+1. Rota inexistente responde no envelope wrapped, com `code`, e `Content-Type: application/json`
+   — nao o 404 padrao do Express em HTML.
+2. JSON malformado responde `400`, nao `500`.
+3. Corpo acima do limite responde `413`, nao `500`.
+4. Nada disso gravou stack trace no log do servidor. Erro de cliente nao e falha de servidor;
+   como o parser de corpo roda ANTES do auth, qualquer requisicao sem token consegue poluir o
+   log e afogar o 5xx real.
+
+Um `500` em qualquer um dos tres primeiros significa que o `errorHandler` esta tratando erro
+do cliente como falha do servidor. Corrigir antes de seguir.
+
 Quando um gate estiver bloqueado por credencial ausente ou permissao nao concedida, marcar
 `BLOQUEADO` com o motivo e o que destrava. Nunca marcar `OK` por inferencia nem omitir a
 linha: um gate silencioso vira promessa falsa de que o produto esta no ar.
@@ -248,6 +272,8 @@ Nao declarar pronto enquanto algum item falhar:
 - telas cobrem vazio, loading, erro e sucesso;
 - sem arquivo-deus ou componente monolitico sem justificativa;
 - testes focados, typecheck, lint, **build dos dois workspaces** e smoke local passam;
+- API sondada com entrada invalida: rota inexistente, JSON malformado e corpo grande demais
+  respondem no envelope com o status certo (404/400/413, nunca 500) e sem stack no log;
 - mutacoes externas e deploy foram aprovados.
 - `$supabase` criou/validou `users` e concluiu a auditoria final, ou o bloqueio por credencial
   ausente foi registrado sem alegar banco pronto;
