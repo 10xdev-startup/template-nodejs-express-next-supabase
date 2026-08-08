@@ -88,6 +88,24 @@ que o `setupFilesAfterEnv` carrega antes dos imports do arquivo de teste. Valore
 proposito — teste nao fala com Supabase real. Sem isso, qualquer teste que importe
 `services/` (direta ou transitivamente) estoura no import.
 
+## 6.1. Defeito de contrato so aparece sondando, nunca lendo
+
+**Ja corrigido no template**: `notFoundHandler` responde 404 no envelope e o `errorHandler`
+mapeia os erros tipados do `express.json()` para `400`/`413`, logando stack apenas em 5xx
+inesperado. Ha teste cobrindo cada caso em `backend/src/tests/errorHandler.test.ts`.
+
+A licao generalizavel importa mais que o bug: **typecheck, lint, testes, validador e build
+passavam todos com os tres defeitos presentes**. Eles so apareceram mandando requisicao ruim
+com `curl`. Duas consequencias praticas:
+
+- Ao adicionar rota, middleware ou parser novo, sonde com entrada invalida antes de declarar
+  pronto (ver §7 do SKILL.md).
+- Erro de cliente que vira `500` nao e so status errado: como o parser de corpo roda ANTES
+  do auth, vira vetor de poluicao de log **sem autenticacao** — e o 5xx real se perde no meio.
+
+Corolario para `errorHandler` em geral: todo ramo que nao for `AppError` precisa decidir
+conscientemente se e 4xx ou 5xx. O `else` generico que manda tudo para 500 e o bug.
+
 ## 7. `npm run build` e o unico gate que pega a classe do item 4
 
 `typecheck`, `lint`, testes e o validador passavam todos com o bug do item 4 presente.

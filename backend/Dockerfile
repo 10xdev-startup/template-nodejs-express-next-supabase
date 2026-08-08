@@ -17,6 +17,8 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 ENV NODE_ENV=production
+# Alinha a porta real do processo com o EXPOSE abaixo (o App Service sobrescreve via PORT).
+ENV PORT=8000
 
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 apiuser

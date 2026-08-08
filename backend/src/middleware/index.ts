@@ -2,3 +2,4 @@
 export { supabaseMiddleware } from '@/middleware/supabaseMiddleware'
 export { requireRole, requireAdmin } from '@/middleware/requireRole'
 export { errorHandler } from '@/middleware/errorHandler'
+export { notFoundHandler } from '@/middleware/notFoundHandler'

@@ -114,6 +114,21 @@ for (const file of filesUnder('frontend/components')) {
   }
 }
 
+// Rota sem guard e falha ABERTA: o Model usa service-role e ignora RLS, entao um router
+// montado sem `supabaseMiddleware` expoe a tabela inteira. Montar o middleware global
+// resolveria no runtime, mas faria typo virar 401 e rota inexistente gravar perfil no
+// banco — entao a garantia mora aqui: ou tem guard, ou e publica por decisao explicita.
+for (const file of filesUnder('backend/src/routes')) {
+  if (!file.endsWith('.ts')) continue
+  const source = readFileSync(file, 'utf8')
+  const label = relative(root, file)
+  if (source.includes('supabaseMiddleware')) continue
+  if (/@rota-publica/.test(source)) continue
+  errors.push(
+    `router sem autenticacao: ${label} (adicione supabaseMiddleware ou marque com o comentario @rota-publica)`,
+  )
+}
+
 // --- Armadilhas do template -------------------------------------------------
 // Cada check abaixo nasceu de um bug que passou por typecheck, lint e testes.
 // Ver references/armadilhas-template.md para o sintoma completo de cada um.
