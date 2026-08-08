@@ -7,3 +7,6 @@ dist/
 !.env.example
 backend/package-lock.json
 frontend/package-lock.json
+
+# Session id do codex CLI (skill /codex) — local, nao versionar
+.context/
