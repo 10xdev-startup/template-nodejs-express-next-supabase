@@ -1,8 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import dotenv from 'dotenv'
 
-dotenv.config()
-
+// Carga da env fica so em src/index.ts (unico ponto, com override: true). Sem
+// dotenv.config() aqui: o client abaixo e lazy (Proxy), entao process.env so e lido
+// no primeiro uso real do banco — bem depois do index.ts ja ter carregado o .env.
 let client: SupabaseClient | null = null
 
 // Cria o client sob demanda. As credenciais so sao exigidas no primeiro uso
