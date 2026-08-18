@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase/client"
+import { createClient } from "@/lib/supabase/client"
 
 /**
  * Auth do Supabase — email e senha, o único provider habilitado no projeto.
@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase/client"
  */
 
 export async function signInWithEmail(email: string, password: string): Promise<void> {
-  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  const { error } = await createClient().auth.signInWithPassword({ email, password })
   if (error) throw error
 }
 
@@ -26,12 +26,12 @@ export async function signUpWithEmail(
   password: string,
   name: string,
 ): Promise<{ needsConfirmation: boolean }> {
-  const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name } } })
+  const { data, error } = await createClient().auth.signUp({ email, password, options: { data: { name } } })
   if (error) throw error
   return { needsConfirmation: !data.session }
 }
 
 export async function signOut(): Promise<void> {
-  const { error } = await supabase.auth.signOut()
+  const { error } = await createClient().auth.signOut()
   if (error) throw error
 }

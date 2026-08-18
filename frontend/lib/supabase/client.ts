@@ -4,10 +4,12 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 let browserClient: SupabaseClient | null = null
 
 /**
- * Client de browser do Supabase, cacheado em módulo — serve a sessão da
- * memória/localStorage e só vai à rede quando o token expira (blueprint §3.2).
+ * Client de browser memoizado. NAO instancie no escopo do modulo: o Next
+ * prerenderiza componentes 'use client' no build, e um createClient() no load
+ * derruba `next build` com "credenciais nao configuradas" em qualquer maquina
+ * sem `.env`. Chame dentro de quem realmente usa.
  */
-function createClient(): SupabaseClient {
+export function createClient(): SupabaseClient {
   if (browserClient) return browserClient
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -22,5 +24,3 @@ function createClient(): SupabaseClient {
   browserClient = createBrowserClient(supabaseUrl, supabaseAnonKey)
   return browserClient
 }
-
-export const supabase = createClient()

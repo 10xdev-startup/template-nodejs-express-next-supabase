@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import type { Session } from "@supabase/supabase-js"
-import { supabase } from "@/lib/supabase/client"
+import { createClient } from "@/lib/supabase/client"
 
 /**
  * Sessão do Supabase em React. Só leitura: quem inicia sessão é o `authService`, e o
@@ -47,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }): React.JSX.E
 
   useEffect(() => {
     let mounted = true
+    const supabase = createClient()
 
     supabase.auth
       .getSession()
