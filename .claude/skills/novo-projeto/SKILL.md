@@ -51,6 +51,16 @@ Troque cada ocorrencia no contexto certo:
   nome e a linha "descreva aqui..." pela descricao de uma linha.
 - **`README.md`** — titulo e "Visao Geral" com o nome e a descricao.
 
+Alem do placeholder, preencha tambem **`.github/workflows/deploy.yml`** (bloco
+`env:`) com os 7 valores derivados do **slug** — mesma convencao de nomes que a
+skill `/deploy-azure` documenta (secao "Regra de nomes" e passo 11), nao
+duplique a tabela aqui. Isso importa mesmo que o usuario ainda nao va publicar
+hoje: o arquivo pode ja vir com valores **reais de outro projeto** (nao
+`seu-...`) se este template foi clonado de uma instancia ja configurada — nesse
+caso o guard do preflight (`grep -q 'seu-'`) nao aborta, e um push futuro na
+`main` deployaria em cima da infra Azure errada em silencio. Resetar pro slug
+novo agora fecha esse buraco de uma vez.
+
 ## 3. Configurar o ambiente e a fundacao do banco
 
 Se `backend/.env` / `frontend/.env` ainda nao existirem:
@@ -93,7 +103,14 @@ npm run typecheck -w backend && npm run lint -w backend
 npm run typecheck -w frontend && npm run lint -w frontend
 ```
 
-## 5. Próximos passos — outras skills
+## 5. Iniciar o grafo do graphify
+
+Rode `/graphify backend/src frontend` (não `/graphify .` na raiz — isso puxa
+`.claude/skills/gstack` inteiro pro grafo, que é código das skills, não do
+produto, e vira ruído). Vale rodar mesmo cedo: o grafo cresce incremental depois
+via `/graphify <path> --update`.
+
+## 6. Próximos passos — outras skills
 
 Quando o usuário quiser subir pra produção, aponte pra skill **`/deploy-azure`**
 — ela cuida da infra (Container Registry + App Service) e liga o auto-deploy via
@@ -103,7 +120,7 @@ Se o produto tiver **billing por uso** (planos, meters, webhooks de cobrança),
 aponte pra skill **`/stripe-setup`** — ela audita e alinha a configuração
 Stripe entre ambientes. Só é relevante se o produto tiver billing; não force.
 
-## 6. Resumir
+## 7. Resumir
 
 Liste o que foi renomeado, quais `.env` foram preenchidos, se a fundação do
 banco foi criada (e a decisão de `mailer_autoconfirm`), e se o `dev` subiu limpo.
