@@ -69,10 +69,11 @@ Backend: `ts-jest` (env node). Frontend: `next/jest` + jsdom + Testing Library. 
   - `npm test -w backend -- src/tests/apiResponse.test.ts`
   - `npm test -w frontend -- tests/apiErrors.test.ts`
 - **Descobrir o que rodar ao mexer no codigo** (os testes ficam flat, entao use o grafo de imports do Jest em vez de procurar na mao):
-  - `npm test -w backend -- -o` → so os testes afetados pelo diff git (uncommitted). Subconjunto pequeno, seguro pro WSL.
+  - `npm test -w backend -- -o` → so os testes afetados pelo diff git (uncommitted). Subconjunto pequeno, seguro pro WSL. **Com o worktree limpo (tudo commitado) volta vazio** — nao quer dizer "nada pra testar", quer dizer que o `-o` nao tem diff pra comparar. Nesse caso use `--changedSince=main` (compara contra a base, nao contra o working tree): `npm test -w backend -- --changedSince=main`.
   - `npm test -w backend -- --findRelatedTests src/utils/apiResponse.ts` → os testes que tocam aquele arquivo (transitivo).
 - Mocke deps externas (`jest.mock(...)` p/ Supabase etc.); nao mocke o codigo sob teste.
 - TDD para bug: escreva o teste que reproduz o bug **primeiro**, depois faca passar.
+- **`@jest/globals` e obrigatorio** (`import { describe, it, expect } from '@jest/globals'`) — o projeto nao instala `@types/jest` de proposito: esse pacote injeta `describe`/`it`/`expect` no escopo global do workspace inteiro (no backend, dentro de controllers e models tambem, via `roots: src/`), versiona a parte do `jest` (podendo divergir de versao) e colide com qualquer outro runner que exporte os mesmos nomes (Playwright, Vitest). Sem o import, o Jest roda verde mas o `typecheck` quebra com `Cannot find name 'describe'`.
 - Tarefa so esta "feita" quando os testes pertinentes passam + `typecheck` + `lint`.
 
 ## Deploy (Azure)
@@ -122,6 +123,12 @@ Backend: `ts-jest` (env node). Frontend: `next/jest` + jsdom + Testing Library. 
 - **API**: kebab-case (`/user-cards`)
 - **Propriedades de tipo**: camelCase
 
+### Rotas (frontend)
+
+- Quem decide se a pagina tem sidebar e o **grupo**, nao a URL: `(dashboard)` tem `layout.tsx` com sidebar, `(lps)` nao tem layout (os parenteses somem da URL, herda o layout raiz sem sidebar).
+- Pagina publica **nunca** entra em `(dashboard)`. Landing em `frontend/app/page.tsx` (`/`), paginas de anuncio em `frontend/app/(lps)/lp/<nome>/page.tsx` (`/lp/<nome>`).
+- Item de sidebar (`AppSidebar.tsx` → `NAV_ITEMS`) so existe para rota dentro de `(dashboard)`.
+
 ## API — contrato e estrutura
 
 **Resposta SEMPRE no envelope wrapped** (decisao de contrato — nunca cru, nunca misto):
@@ -156,11 +163,12 @@ Convencoes:
 
 ## Autenticacao
 
-- **Provider**: Supabase Auth (Google OAuth)
+- **Provider**: Supabase Auth (email + senha)
 - **Tokens**: JWT Bearer tokens em headers `Authorization: Bearer <token>`
 - **Backend**: `supabaseMiddleware` (`@/middleware`) valida o JWT via `auth.getUser(token)`, garante a linha em `users` (cria no 1º login) e injeta `req.user` (`AuthUser`, tipado em todo controller).
 - **Roles**: `req.user.role` (`UserRole = 'user' | 'admin'`). Proteja rotas com `requireRole(...roles)` / `requireAdmin` (`@/middleware`); para mais papeis, edite a union `UserRole`. Roles por recurso (membership) sao um dominio a construir por cima — nao vem no template.
 - **Erros**: lance `AppError(status, message, code?)` (`@/utils/AppError`) nos controllers; o `errorHandler` central serializa no envelope wrapped.
+- **Confirmacao de email**: projeto Supabase novo nasce com confirmacao por email ligada e **sem SMTP proprio** — o mailer embutido entrega pouco e o cadastro trava na pratica. Decida explicitamente no setup: **MVP/dev** → ligue `mailer_autoconfirm` (`PATCH /v1/projects/{ref}/config/auth`), o `signUp` ja devolve sessao; **producao com email verificado** → configure SMTP (Resend/SendGrid) **antes** de manter a confirmacao ligada. Deixar como vem de fabrica e escolher a opcao que nao funciona.
 
 ### Testar endpoint autenticado (bearer)
 
@@ -190,9 +198,21 @@ curl -s -X POST "https://api.supabase.com/v1/projects/$REF/database/query" \
 ```
 Use dollar-quoting (`$$...$$`) nas strings dentro do SQL pra nao escapar aspas no JSON.
 
+**DDL multi-linha nao cabe em `-d '{"query":"..."}'` inline** (newlines e aspas de `$$...$$` corrompem o JSON se escapadas a mao). Pra DDL real (create table + functions + triggers + policies), monte o payload por codigo em vez de escapar manualmente:
+```bash
+source .env
+S=<scratchpad>   # nunca .sql no repo
+python3 -c "import json; print(json.dumps({'query': open('$S/ddl.sql').read()}))" > $S/payload.json
+curl -s -X POST "https://api.supabase.com/v1/projects/$REF/database/query" \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data-binary @$S/payload.json
+```
+Envolva em `begin; ... rollback;`, valide, troque **so** o `rollback` por `commit` (`sed -i 's/^rollback;$/commit;/'`) e aplique. Confirme pelo estado real (`information_schema`, `pg_policies`, `pg_trigger`) — nunca pelo HTTP 200.
+
 ### Tabelas principais
 
-- **`users`** — perfil da aplicacao, espelha `auth.users`. Criada pelo `supabaseMiddleware` no 1º login (role `user`, status `active`). DDL para aplicar via curl acima:
+- **`users`** — perfil da aplicacao, espelha `auth.users`. **Passo obrigatorio do setup**: o backend nao funciona (nenhuma rota de usuario, nenhum login completa) ate esta tabela existir — nao e criada automaticamente pelo Supabase. Depois de existir, a linha de cada usuario e criada pelo `supabaseMiddleware` no 1º login (role `user`, status `active`). DDL para aplicar via curl acima:
   ```sql
   create table if not exists public.users (
     id uuid primary key references auth.users(id) on delete cascade,
@@ -203,16 +223,23 @@ Use dollar-quoting (`$$...$$`) nas strings dentro do SQL pra nao escapar aspas n
     updated_at timestamptz not null default now()
   );
   ```
+  Sem RLS por padrao (tabela aberta pela anon key). Se habilitar RLS, inclua uma policy de "select da propria linha" — a tela `/seja-bem-vindo` do frontend le `onboarded_at` direto pelo client do Supabase, nao pelo backend.
 
 ## Arquivos-chave
 
-- `frontend/app/(dashboard)/page.tsx` — pagina principal
+- `frontend/app/page.tsx` — landing publica em `/` (sem sidebar)
+- `frontend/app/(dashboard)/inicio/page.tsx` — primeira pagina da area logada
+- `frontend/app/(lps)/lp/` — paginas de anuncio (`/lp/<nome>`), sem sidebar
 - `frontend/components/AppSidebar.tsx` — sidebar com navegacao
 - `backend/src/index.ts` — entry point do servidor
 - `backend/src/database/supabase.ts` — configuracao do client (service-role)
 - `backend/src/middleware/` — `supabaseMiddleware` (auth), `requireRole`/`requireAdmin`, `errorHandler`
 - `backend/src/{routes,controllers,models}/User*` — dominio de referencia `user` (molde Controller → Model → Database)
-- `frontend/services/` — `apiClient` (transporte wrapped) + `userService` (molde de dominio)
+- `frontend/services/` — `apiClient` (transporte wrapped) + `userService` (molde de dominio) + `authService` (SDK do Supabase direto — fora do transporte wrapped de proposito)
+- `frontend/proxy.ts` — gate de rotas (publica vs autenticada) + refresh de cookie de sessao
+- `frontend/lib/supabase/` — `client.ts` (browser) / `server.ts` (SSR, cookies) via `@supabase/ssr`
+- `frontend/hooks/useAuth.tsx` — sessao em React (`AuthProvider`/`useAuth`, so leitura)
+- `frontend/app/(auth)/` + `frontend/app/seja-bem-vindo/` — telas de entrada e onboarding
 
 ## Skill routing
 
