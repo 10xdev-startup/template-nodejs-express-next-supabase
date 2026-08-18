@@ -38,6 +38,14 @@ export async function supabaseMiddleware(
   const { data, error } = await supabase.auth.getUser(token)
   const authUser = data.user
   if (error || !authUser) {
+    // status 0 (fetch falhou) ou 5xx e o Supabase inacessivel, nao um token ruim do
+    // usuario — devolver 401 nesse caso mentiria sobre a causa (ver licoes do template).
+    const isInfraFailure = error != null && (error.status === 0 || (error.status ?? 0) >= 500)
+    if (isInfraFailure) {
+      console.error('[supabaseMiddleware] Supabase indisponivel:', error?.status, error?.message)
+      sendError(res, 503, 'Servico de autenticacao indisponivel', 'AUTH_SERVICE_UNAVAILABLE')
+      return
+    }
     sendError(res, 401, 'Token invalido ou expirado', 'AUTH_INVALID')
     return
   }
