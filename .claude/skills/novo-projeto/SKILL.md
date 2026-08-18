@@ -103,14 +103,37 @@ npm run typecheck -w backend && npm run lint -w backend
 npm run typecheck -w frontend && npm run lint -w frontend
 ```
 
-## 5. Iniciar o grafo do graphify
+## 5. Configurar alerta de erro via Telegram (opcional)
+
+`reportError` (`backend/src/services/errorReporting.ts`, ver CLAUDE.md) já grava
+em `error_logs` sem isso — este passo só liga o alerta em tempo real. **Pergunte
+se o usuário quer configurar agora**; se não, pule e siga pro próximo passo.
+
+Se quiser:
+
+1. Fale com **@BotFather** no Telegram, `/newbot`, siga o fluxo — ele devolve o
+   `TELEGRAM_SUPPORT_BOT_TOKEN` (formato `123456:ABC-...`).
+2. Adicione o bot recém-criado num grupo (ou mande uma mensagem direto pra ele)
+   e pegue o `TELEGRAM_SUPPORT_CHAT_ID`:
+   ```bash
+   curl -s "https://api.telegram.org/bot<TOKEN>/getUpdates" | grep -o '"chat":{"id":[0-9-]*'
+   ```
+   (grupo tem ID negativo, conversa direta é positivo — os dois funcionam.)
+3. Escreva os dois em `backend/.env`.
+4. Teste antes de dar como pronto:
+   ```bash
+   curl -s -X POST "https://api.telegram.org/bot<TOKEN>/sendMessage" \
+     -d "chat_id=<CHAT_ID>" -d "text=teste do reportError"
+   ```
+
+## 6. Iniciar o grafo do graphify
 
 Rode `/graphify backend/src frontend` (não `/graphify .` na raiz — isso puxa
 `.claude/skills/gstack` inteiro pro grafo, que é código das skills, não do
 produto, e vira ruído). Vale rodar mesmo cedo: o grafo cresce incremental depois
 via `/graphify <path> --update`.
 
-## 6. Próximos passos — outras skills
+## 7. Próximos passos — outras skills
 
 Quando o usuário quiser subir pra produção, aponte pra skill **`/deploy-azure`**
 — ela cuida da infra (Container Registry + App Service) e liga o auto-deploy via
@@ -120,8 +143,9 @@ Se o produto tiver **billing por uso** (planos, meters, webhooks de cobrança),
 aponte pra skill **`/stripe-setup`** — ela audita e alinha a configuração
 Stripe entre ambientes. Só é relevante se o produto tiver billing; não force.
 
-## 7. Resumir
+## 8. Resumir
 
 Liste o que foi renomeado, quais `.env` foram preenchidos, se a fundação do
-banco foi criada (e a decisão de `mailer_autoconfirm`), e se o `dev` subiu limpo.
+banco foi criada (e a decisão de `mailer_autoconfirm`), se o alerta do Telegram
+foi configurado (ou pulado), e se o `dev` subiu limpo.
 Não commite sem o usuário pedir (ver skill `/commit`).

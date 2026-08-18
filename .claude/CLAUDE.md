@@ -129,6 +129,21 @@ Backend: `ts-jest` (env node). Frontend: `next/jest` + jsdom + Testing Library. 
 - Pagina publica **nunca** entra em `(dashboard)`. Landing em `frontend/app/page.tsx` (`/`), paginas de anuncio em `frontend/app/(lps)/lp/<nome>/page.tsx` (`/lp/<nome>`).
 - Item de sidebar (`AppSidebar.tsx` → `NAV_ITEMS`) so existe para rota dentro de `(dashboard)`.
 
+### Erro em ponto-chave vira alerta (`reportError`)
+
+Todo `catch` que hoje so loga local (background job, webhook, sync — qualquer lugar onde o erro nao propaga pra um `AppError`/`errorHandler` porque nao ha request HTTP pra responder) **sempre** chama `reportError` (`backend/src/services/errorReporting.ts`) — grava em `error_logs` (Supabase, RLS travado) e tenta alertar um bot do Telegram dedicado a erro. Sem isso o erro so existe no log do servidor, que ninguem le.
+
+```ts
+} catch (err) {
+  void reportError({ context: 'Sync: falha ao renovar token (segue com o atual)', error: err, userId })
+  return tokens.access_token
+}
+```
+
+`reportError` nunca lanca — seguro de chamar de dentro de qualquer catch. O alerta via Telegram e **opcional**: sem `TELEGRAM_SUPPORT_BOT_TOKEN`/`TELEGRAM_SUPPORT_CHAT_ID` configurados (skill `/novo-projeto` guia a criacao do bot), so pula o envio e grava `notified: false` — o registro em `error_logs` acontece de qualquer jeito.
+
+Nao chame `reportError` num controller que ja lanca `AppError` pro `errorHandler` central — isso duplicaria o registro. E pra erro que nao propaga: back-fill, poll de status, hook de terceiro.
+
 ## API — contrato e estrutura
 
 **Resposta SEMPRE no envelope wrapped** (decisao de contrato — nunca cru, nunca misto):
@@ -224,6 +239,19 @@ Envolva em `begin; ... rollback;`, valide, troque **so** o `rollback` por `commi
   );
   ```
   Sem RLS por padrao (tabela aberta pela anon key). Se habilitar RLS, inclua uma policy de "select da propria linha" — a tela `/seja-bem-vindo` do frontend le `onboarded_at` direto pelo client do Supabase, nao pelo backend.
+
+- **`error_logs`** — grava toda chamada a `reportError` (ver "Erro em ponto-chave vira alerta" abaixo). RLS travado, sem policy publica — so o backend (service-role) escreve; nenhum client de anon-key deve ler ou escrever aqui. DDL para aplicar via curl acima:
+  ```sql
+  create table if not exists public.error_logs (
+    id uuid primary key default gen_random_uuid(),
+    context text not null,
+    error_message text not null,
+    user_id uuid references auth.users(id) on delete set null,
+    notified boolean not null default false,
+    created_at timestamptz not null default now()
+  );
+  alter table public.error_logs enable row level security;
+  ```
 
 ## Arquivos-chave
 
