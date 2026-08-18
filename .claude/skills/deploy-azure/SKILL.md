@@ -112,6 +112,8 @@ Antes de criar, pergunte ao usuario qual SKU ele quer:
 | `B2` | ~$26 | 2x CPU/RAM do B1 |
 | `S1` | ~$70 | Auto-scale, staging slots |
 
+> **F1 nao e gratuito no todo.** Os 60 min de CPU/dia sao do **plano inteiro** — backend e frontend dividem a mesma cota, nao 60 min cada. Sem "Always On", o container hiberna e o cold start passa de 30s na proxima request. E o Container Registry (passo 03) **nao tem SKU gratuito** — o piso real de um projeto e ACR Basic + F1 + 2 apps, ~R$ 25,85/mes (Brazil South). Subir pra B1 depois e so `az appservice plan update`, sem recriar nada. Preco sempre da fonte, nunca de memoria: `curl -s "https://prices.azure.com/api/retail/prices?\$filter=serviceName%20eq%20'Azure%20App%20Service'%20and%20armRegionName%20eq%20'brazilsouth'&currencyCode='BRL'"`.
+
 ```bash
 # Substitua {sku} pelo escolhido: F1, B1, B2, S1...
 az appservice plan create \
@@ -234,4 +236,25 @@ az ad sp create-for-rbac --name "sp-{slug}-deploy" \
   --role contributor \
   --scopes /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/resource-{slug}
 ```
+
+> A senha que este comando devolve **nao e usada em OIDC** — nao guarde, nao coloque em secret.
+
+**Federated credential — sem ela o login OIDC nao autentica.** `create-for-rbac` so cria o service principal; falta ligar o repo a ele. Sem este passo, o primeiro run do workflow depois do merge morre com `AADSTS700213: No matching federated identity record found`:
+
+```bash
+APP_ID=$(az ad app list --display-name "sp-{slug}-deploy" --query "[0].appId" -o tsv)
+OWNER_ID=$(gh api repos/{owner}/{repo} --jq .owner.id)
+REPO_ID=$(gh api repos/{owner}/{repo} --jq .id)
+
+az ad app federated-credential create --id "$APP_ID" --parameters "{
+  \"name\": \"github-{repo}-main\",
+  \"issuer\": \"https://token.actions.githubusercontent.com\",
+  \"subject\": \"repo:{owner}@$OWNER_ID/{repo}@$REPO_ID:ref:refs/heads/main\",
+  \"audiences\": [\"api://AzureADTokenExchange\"]
+}"
+```
+
+> **O subject usa os IDs numericos da org/repo, nao os nomes.** O formato classico `repo:<org>/<repo>:ref:refs/heads/main` nao casa mais — o GitHub hoje apresenta `repo:<org>@<orgId>/<repo>@<repoId>:ref:refs/heads/main`, um formato imutavel que sobrevive a renomeacoes. Pegue os IDs reais via `gh api`, nunca derive do nome.
+>
+> **O subject fica amarrado a uma ref.** A credential acima so autentica push/dispatch na `main`. Pra disparar o workflow manualmente de outra branch (ex.: validar o pipeline antes do merge), crie outra federated credential com `\"subject\": \"repo:{owner}@$OWNER_ID/{repo}@$REPO_ID:ref:refs/heads/<branch>\"` — senao o unico teste real do CI e o proprio merge.
 
