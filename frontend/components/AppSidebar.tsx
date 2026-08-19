@@ -9,14 +9,15 @@ import {
 } from '@/components/ui/sidebar'
 import {
   DropdownMenu, DropdownMenuContent,
-  DropdownMenuItem, DropdownMenuTrigger
+  DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import { Check, Maximize2, Minimize2, MousePointerClick, PanelLeft } from 'lucide-react'
+import { Check, LogOut, Maximize2, Minimize2, MousePointerClick, PanelLeft } from 'lucide-react'
+import { signOut } from '@/services/authService'
 
 type SidebarMode = 'expanded' | 'collapsed' | 'hover'
 
 const NAV_ITEMS = [
-  { href: '/', title: 'Início', icon: '🏠' },
+  { href: '/inicio', title: 'Início', icon: '🏠' },
   { href: '/componentes', title: 'Componentes', icon: '🧩' },
 ]
 
@@ -181,6 +182,11 @@ function AppSidebar() {
                   <MousePointerClick className="size-4 mr-2" />
                   Expandir ao passar
                   {sidebarMode === 'hover' && <Check className="size-4 ml-auto text-primary" />}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => void signOut().then(() => window.location.assign('/login'))}>
+                  <LogOut className="size-4 mr-2" />
+                  Sair
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

@@ -37,20 +37,11 @@
 
 **Meu Projeto** — descreva aqui o que o projeto faz.
 
-- **Frontend**: Next.js 16, TypeScript, Tailwind CSS, shadcn/ui (Radix) — `frontend/`
+- **Frontend**: Next.js 15, TypeScript, Tailwind CSS, shadcn/ui (Radix) — `frontend/`
 - **Backend**: Node.js, Express, TypeScript, Supabase (PostgreSQL) — `backend/`
 - **Padrao backend**: Controller → Model → Database
 
 ## Comandos
-
-### Raiz (workspaces)
-```bash
-npm ci             # Instala exatamente o lockfile raiz
-npm run dev        # Frontend 3000 + backend 3001 em paralelo
-npm run typecheck  # TypeScript dos dois workspaces
-npm run lint       # ESLint dos dois workspaces
-npm run build      # Build dos dois workspaces
-```
 
 ### Frontend (`frontend/`)
 ```bash
@@ -78,18 +69,16 @@ Backend: `ts-jest` (env node). Frontend: `next/jest` + jsdom + Testing Library. 
   - `npm test -w backend -- src/tests/apiResponse.test.ts`
   - `npm test -w frontend -- tests/apiErrors.test.ts`
 - **Descobrir o que rodar ao mexer no codigo** (os testes ficam flat, entao use o grafo de imports do Jest em vez de procurar na mao):
-  - `npm test -w backend -- -o` → so os testes afetados pelo diff git (uncommitted). Subconjunto pequeno, seguro pro WSL.
+  - `npm test -w backend -- -o` → so os testes afetados pelo diff git (uncommitted). Subconjunto pequeno, seguro pro WSL. **Com o worktree limpo (tudo commitado) volta vazio** — nao quer dizer "nada pra testar", quer dizer que o `-o` nao tem diff pra comparar. Nesse caso use `--changedSince=main` (compara contra a base, nao contra o working tree): `npm test -w backend -- --changedSince=main`.
   - `npm test -w backend -- --findRelatedTests src/utils/apiResponse.ts` → os testes que tocam aquele arquivo (transitivo).
 - Mocke deps externas (`jest.mock(...)` p/ Supabase etc.); nao mocke o codigo sob teste.
-- **No frontend, `jest.mock` exige o `jest` GLOBAL** (tipado em `frontend/jest.d.ts`). Importar `jest` de `@jest/globals` faz o SWC do `next/jest` parar de hoistar a chamada: o mock **nao aplica** e o teste passa a exercitar o modulo real, sem erro nenhum. Importe so `describe`/`it`/`expect`/`beforeEach` de `@jest/globals`. No backend (`ts-jest`) o import normal funciona.
 - TDD para bug: escreva o teste que reproduz o bug **primeiro**, depois faca passar.
+- **`@jest/globals` e obrigatorio** (`import { describe, it, expect } from '@jest/globals'`) — o projeto nao instala `@types/jest` de proposito: esse pacote injeta `describe`/`it`/`expect` no escopo global do workspace inteiro (no backend, dentro de controllers e models tambem, via `roots: src/`), versiona a parte do `jest` (podendo divergir de versao) e colide com qualquer outro runner que exporte os mesmos nomes (Playwright, Vitest). Sem o import, o Jest roda verde mas o `typecheck` quebra com `Cannot find name 'describe'`.
 - Tarefa so esta "feita" quando os testes pertinentes passam + `typecheck` + `lint`.
 
 ## Deploy (Azure)
 
-**Deploy automatico depois de configurado** — o push na `main` dispara o GitHub Actions
-(`.github/workflows/deploy.yml`). Enquanto houver placeholder `seu-*`, o preflight falha fechado
-e nenhuma infraestrutura e alterada. Setup inicial da infra: skill `/deploy-azure`.
+**Deploy automatico ao cair na `main`** — o push dispara o GitHub Actions (`.github/workflows/deploy.yml`), que builda as imagens Docker (backend+frontend), faz push pro **Azure Container Registry** e atualiza/reinicia os **Web Apps**. Disparo manual: "Run workflow" (workflow_dispatch). Setup inicial da infra: skill `/deploy-azure`.
 
 **Configurar uma vez por projeto:**
 - Edite o bloco `env:` do workflow (nomes do ACR, resource group, Web Apps, imagens, URL do backend).
@@ -134,6 +123,27 @@ e nenhuma infraestrutura e alterada. Setup inicial da infra: skill `/deploy-azur
 - **API**: kebab-case (`/user-cards`)
 - **Propriedades de tipo**: camelCase
 
+### Rotas (frontend)
+
+- Quem decide se a pagina tem sidebar e o **grupo**, nao a URL: `(dashboard)` tem `layout.tsx` com sidebar, `(lps)` nao tem layout (os parenteses somem da URL, herda o layout raiz sem sidebar).
+- Pagina publica **nunca** entra em `(dashboard)`. Landing em `frontend/app/page.tsx` (`/`), paginas de anuncio em `frontend/app/(lps)/lp/<nome>/page.tsx` (`/lp/<nome>`).
+- Item de sidebar (`AppSidebar.tsx` → `NAV_ITEMS`) so existe para rota dentro de `(dashboard)`.
+
+### Erro em ponto-chave vira alerta (`reportError`)
+
+Todo `catch` que hoje so loga local (background job, webhook, sync — qualquer lugar onde o erro nao propaga pra um `AppError`/`errorHandler` porque nao ha request HTTP pra responder) **sempre** chama `reportError` (`backend/src/services/errorReporting.ts`) — grava em `error_logs` (Supabase, RLS travado) e tenta alertar um bot do Telegram dedicado a erro. Sem isso o erro so existe no log do servidor, que ninguem le.
+
+```ts
+} catch (err) {
+  void reportError({ context: 'Sync: falha ao renovar token (segue com o atual)', error: err, userId })
+  return tokens.access_token
+}
+```
+
+`reportError` nunca lanca — seguro de chamar de dentro de qualquer catch. O alerta via Telegram e **opcional**: sem `TELEGRAM_SUPPORT_BOT_TOKEN`/`TELEGRAM_SUPPORT_CHAT_ID` configurados (skill `/novo-projeto` guia a criacao do bot), so pula o envio e grava `notified: false` — o registro em `error_logs` acontece de qualquer jeito.
+
+Nao chame `reportError` num controller que ja lanca `AppError` pro `errorHandler` central — isso duplicaria o registro. E pra erro que nao propaga: back-fill, poll de status, hook de terceiro.
+
 ## API — contrato e estrutura
 
 **Resposta SEMPRE no envelope wrapped** (decisao de contrato — nunca cru, nunca misto):
@@ -168,13 +178,12 @@ Convencoes:
 
 ## Autenticacao
 
-- **Provider**: Supabase Auth (Google OAuth)
-- **Next.js**: `frontend/proxy.ts` atualiza cookies da sessao; a protecao de rotas e definida
-  conforme o briefing do produto.
+- **Provider**: Supabase Auth (email + senha)
 - **Tokens**: JWT Bearer tokens em headers `Authorization: Bearer <token>`
 - **Backend**: `supabaseMiddleware` (`@/middleware`) valida o JWT via `auth.getUser(token)`, garante a linha em `users` (cria no 1º login) e injeta `req.user` (`AuthUser`, tipado em todo controller).
 - **Roles**: `req.user.role` (`UserRole = 'user' | 'admin'`). Proteja rotas com `requireRole(...roles)` / `requireAdmin` (`@/middleware`); para mais papeis, edite a union `UserRole`. Roles por recurso (membership) sao um dominio a construir por cima — nao vem no template.
 - **Erros**: lance `AppError(status, message, code?)` (`@/utils/AppError`) nos controllers; o `errorHandler` central serializa no envelope wrapped.
+- **Confirmacao de email**: projeto Supabase novo nasce com confirmacao por email ligada e **sem SMTP proprio** — o mailer embutido entrega pouco e o cadastro trava na pratica. Decida explicitamente no setup: **MVP/dev** → ligue `mailer_autoconfirm` (`PATCH /v1/projects/{ref}/config/auth`), o `signUp` ja devolve sessao; **producao com email verificado** → configure SMTP (Resend/SendGrid) **antes** de manter a confirmacao ligada. Deixar como vem de fabrica e escolher a opcao que nao funciona.
 
 ### Testar endpoint autenticado (bearer)
 
@@ -193,33 +202,72 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:3001/users/me
 
 Use a **Supabase Management API via `curl`** — **NAO crie arquivos `.sql` de migration no repo**. Toda mudanca de schema/DDL (create table, alter, indices, functions, backfill) e aplicada direto pela API. `backend/src/database/` guarda apenas `supabase.ts` (config do client) — nunca apague.
 
-Chaves em `backend/.env`: `SUPABASE_PROJECT_REF` e `SUPABASE_ACCESS_TOKEN` (token de management,
-`sbp_...`). Padrao (rodar de `backend/`):
+Chaves em `backend/.env`: `SUPABASE_URL` (o project ref e o subdominio) e `SUPABASE_ACCESS_TOKEN` (token de management, `sbp_...`). Padrao (rodar de `backend/`):
 ```bash
 source .env
-curl -s -X POST "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/database/query" \
+REF=$(echo "$SUPABASE_URL" | sed -E 's#https://([^.]+)\..*#\1#')
+curl -s -X POST "https://api.supabase.com/v1/projects/$REF/database/query" \
   -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"query":"<SQL aqui>"}'
 ```
 Use dollar-quoting (`$$...$$`) nas strings dentro do SQL pra nao escapar aspas no JSON.
 
-### Tabelas da fundacao
+**DDL multi-linha nao cabe em `-d '{"query":"..."}'` inline** (newlines e aspas de `$$...$$` corrompem o JSON se escapadas a mao). Pra DDL real (create table + functions + triggers + policies), monte o payload por codigo em vez de escapar manualmente:
+```bash
+source .env
+S=<scratchpad>   # nunca .sql no repo
+python3 -c "import json; print(json.dumps({'query': open('$S/ddl.sql').read()}))" > $S/payload.json
+curl -s -X POST "https://api.supabase.com/v1/projects/$REF/database/query" \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data-binary @$S/payload.json
+```
+Envolva em `begin; ... rollback;`, valide, troque **so** o `rollback` por `commit` (`sed -i 's/^rollback;$/commit;/'`) e aplique. Confirme pelo estado real (`information_schema`, `pg_policies`, `pg_trigger`) — nunca pelo HTTP 200.
 
-- **`users`** — perfil da aplicacao, espelha `auth.users`.
+### Tabelas principais
 
-O contrato completo de constraints, indices, triggers, grants e RLS fica na skill
-`supabase`. Tabelas de dominio sao definidas pelo briefing; nao improvisar DDL parcial.
+- **`users`** — perfil da aplicacao, espelha `auth.users`. **Passo obrigatorio do setup**: o backend nao funciona (nenhuma rota de usuario, nenhum login completa) ate esta tabela existir — nao e criada automaticamente pelo Supabase. Depois de existir, a linha de cada usuario e criada pelo `supabaseMiddleware` no 1º login (role `user`, status `active`). DDL para aplicar via curl acima:
+  ```sql
+  create table if not exists public.users (
+    id uuid primary key references auth.users(id) on delete cascade,
+    email text not null, name text, avatar_url text,
+    role text not null default 'user', status text not null default 'active',
+    onboarded_at timestamptz,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+  );
+  ```
+  Sem RLS por padrao (tabela aberta pela anon key). Se habilitar RLS, inclua uma policy de "select da propria linha" — a tela `/seja-bem-vindo` do frontend le `onboarded_at` direto pelo client do Supabase, nao pelo backend.
+
+- **`error_logs`** — grava toda chamada a `reportError` (ver "Erro em ponto-chave vira alerta" abaixo). RLS travado, sem policy publica — so o backend (service-role) escreve; nenhum client de anon-key deve ler ou escrever aqui. DDL para aplicar via curl acima:
+  ```sql
+  create table if not exists public.error_logs (
+    id uuid primary key default gen_random_uuid(),
+    context text not null,
+    error_message text not null,
+    user_id uuid references auth.users(id) on delete set null,
+    notified boolean not null default false,
+    created_at timestamptz not null default now()
+  );
+  alter table public.error_logs enable row level security;
+  ```
 
 ## Arquivos-chave
 
-- `frontend/app/(dashboard)/page.tsx` — pagina principal
+- `frontend/app/page.tsx` — landing publica em `/` (sem sidebar)
+- `frontend/app/(dashboard)/inicio/page.tsx` — primeira pagina da area logada
+- `frontend/app/(lps)/lp/` — paginas de anuncio (`/lp/<nome>`), sem sidebar
 - `frontend/components/AppSidebar.tsx` — sidebar com navegacao
 - `backend/src/index.ts` — entry point do servidor
 - `backend/src/database/supabase.ts` — configuracao do client (service-role)
 - `backend/src/middleware/` — `supabaseMiddleware` (auth), `requireRole`/`requireAdmin`, `errorHandler`
 - `backend/src/{routes,controllers,models}/User*` — dominio de referencia `user` (molde Controller → Model → Database)
-- `frontend/services/` — `apiClient` (transporte wrapped) + `userService` (molde de dominio)
+- `frontend/services/` — `apiClient` (transporte wrapped) + `userService` (molde de dominio) + `authService` (SDK do Supabase direto — fora do transporte wrapped de proposito)
+- `frontend/proxy.ts` — gate de rotas (publica vs autenticada) + refresh de cookie de sessao
+- `frontend/lib/supabase/` — `client.ts` (browser) / `server.ts` (SSR, cookies) via `@supabase/ssr`
+- `frontend/hooks/useAuth.tsx` — sessao em React (`AuthProvider`/`useAuth`, so leitura)
+- `frontend/app/(auth)/` + `frontend/app/seja-bem-vindo/` — telas de entrada e onboarding
 
 ## Skill routing
 
@@ -230,7 +278,6 @@ Quando o pedido casa com uma skill, invoque-a com a tool Skill como **primeira a
 - Conflito de merge → `/fix-merge-conflicts`
 - Limpar codigo gerado por IA (AI slop) → `/remove-ai-slop`
 - Deploy / Azure → `/deploy-azure`
-- Supabase, schema, RLS, Auth, Storage → `/supabase`
 - Bug, erro, "por que quebrou", 500 → `/investigate`
 - QA, testar o site, achar bugs → `/qa`
 - Code review, revisar o diff → `/review` ou `/code-review`

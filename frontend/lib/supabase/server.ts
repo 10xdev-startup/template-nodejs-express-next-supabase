@@ -1,16 +1,22 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { createServerClient } from "@supabase/ssr"
+import { cookies } from "next/headers"
 
+/**
+ * Client de servidor do Supabase — lê/escreve cookies via `next/headers` para o gate
+ * de rotas (proxy) e Server Components conseguirem ler a sessão (blueprint §3.2).
+ */
 export async function createClient(): Promise<ReturnType<typeof createServerClient>> {
   const cookieStore = await cookies()
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  if (!url || !key) {
-    throw new Error('Credenciais publicas do Supabase nao configuradas')
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY são obrigatórios",
+    )
   }
 
-  return createServerClient(url, key, {
+  return createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll: () => cookieStore.getAll(),
       setAll(cookiesToSet) {
@@ -19,7 +25,7 @@ export async function createClient(): Promise<ReturnType<typeof createServerClie
             cookieStore.set(name, value, options)
           })
         } catch {
-          // Server Components nao gravam cookies; o Proxy atualiza a sessao.
+          // Server Components não gravam cookies; o proxy atualiza a sessão.
         }
       },
     },

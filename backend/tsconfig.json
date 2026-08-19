@@ -19,6 +19,9 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
+    // O editor pode marcar baseUrl como deprecado (TS embutido dele, mais novo que o
+    // do workspace — ver .vscode/settings.json). NAO remova: tsconfig-paths (usado
+    // pelo `npm run dev`) resolve os aliases @/* a partir dele.
     "baseUrl": "./src",
     "paths": {
       "@/*": ["*"],

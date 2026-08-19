@@ -26,7 +26,7 @@ const INSUMO_GROUPS: InsumoGroup[] = [
     items: [
       "Monorepo com frontend/ (Next.js) e backend/ (Express) separados",
       "Path aliases @/* configurados nos dois projetos",
-      "Variáveis de ambiente (.env.local e .env.example) prontas",
+      "Variáveis de ambiente (.env e .env.example) prontas",
     ],
   },
   {
